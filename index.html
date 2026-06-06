@@ -1014,6 +1014,146 @@ function EmploiTemps({data,ops,etab}) {
   );
 }
 
+function FicheNotes({data,ops,etab,onEtabUpdate}) {
+  const ALIGNS=[{v:"left",l:"Gauche"},{v:"center",l:"Centre"},{v:"right",l:"Droite"}];
+  const COULEURS=["#1a56db","#0f766e","#7c3aed","#b91c1c","#c2410c","#475569","#0f172a"];
+  const colDefaut=()=>([
+    {nom:"N°",largeur:40,couleur:"#1a56db",align:"center"},
+    {nom:"Nom & Prénom",largeur:200,couleur:"#1a56db",align:"left",auto:"nom"},
+    {nom:"Matricule",largeur:110,couleur:"#1a56db",align:"center",auto:"matricule"},
+    {nom:"Devoir 1",largeur:80,couleur:"#0f766e",align:"center"},
+    {nom:"Devoir 2",largeur:80,couleur:"#0f766e",align:"center"},
+    {nom:"Composition",largeur:90,couleur:"#7c3aed",align:"center"},
+    {nom:"Moyenne",largeur:80,couleur:"#b91c1c",align:"center"},
+    {nom:"Observations",largeur:150,couleur:"#475569",align:"left"},
+  ]);
+  const [classeId,setClasseId]=useState(data.classes[0]?.id||"");
+  const [cols,setCols]=useState(colDefaut());
+  const [lignesVides,setLignesVides]=useState(3);
+  const [titre,setTitre]=useState("FICHE DE NOTES");
+  const [modeleNom,setModeleNom]=useState("");
+  const modeles=Array.isArray(etab.fiche_modeles)?etab.fiche_modeles:[];
+  const classe=data.classes.find(c=>c.id===parseInt(classeId));
+  const eleves=data.eleves.filter(e=>e.classe_id===parseInt(classeId));
+
+  const setCol=(i,k,v)=>setCols(cs=>{const n=[...cs];n[i]={...n[i],[k]:v};return n;});
+  const addCol=()=>setCols(cs=>[...cs,{nom:"Nouvelle colonne",largeur:80,couleur:"#0f766e",align:"center"}]);
+  const delCol=i=>setCols(cs=>cs.filter((_,j)=>j!==i));
+  const moveCol=(i,dir)=>setCols(cs=>{const n=[...cs];const j=i+dir;if(j<0||j>=n.length)return cs;[n[i],n[j]]=[n[j],n[i]];return n;});
+
+  const saveModele=async()=>{
+    if(!modeleNom.trim())return;
+    const nouveau={nom:modeleNom.trim(),cols,lignesVides,titre};
+    const autres=modeles.filter(m=>m.nom!==nouveau.nom);
+    const updated=await ops.updateEtab(etab.id,{fiche_modeles:[...autres,nouveau]});
+    if(updated){onEtabUpdate(updated);setModeleNom("");}
+  };
+  const chargerModele=m=>{setCols(m.cols||colDefaut());setLignesVides(m.lignesVides??3);setTitre(m.titre||"FICHE DE NOTES");};
+  const supprModele=async(nom)=>{
+    const updated=await ops.updateEtab(etab.id,{fiche_modeles:modeles.filter(m=>m.nom!==nom)});
+    if(updated)onEtabUpdate(updated);
+  };
+
+  const imprimer=()=>{
+    if(!classe)return;
+    const th=cols.map(c=>`<th style="border:1px solid #94a3b8;padding:6px 8px;background:${c.couleur};color:#fff;font-size:11px;text-align:${c.align};width:${c.largeur}px">${c.nom}</th>`).join("");
+    const rowsEleves=eleves.map((e,i)=>`<tr>${cols.map(c=>{
+      let val="";
+      if(c.auto==="nom")val=`${e.prenom||""} ${e.nom||""}`;
+      else if(c.auto==="matricule")val=e.matricule||"";
+      else if(c.nom==="N°"||c.auto==="num")val=i+1;
+      return `<td style="border:1px solid #cbd5e1;padding:6px 8px;font-size:11px;text-align:${c.align};height:24px">${val}</td>`;
+    }).join("")}</tr>`).join("");
+    const rowsVides=Array.from({length:lignesVides}).map((_,k)=>`<tr>${cols.map(c=>{
+      const val=(c.nom==="N°"||c.auto==="num")?(eleves.length+k+1):"";
+      return `<td style="border:1px solid #cbd5e1;padding:6px 8px;font-size:11px;text-align:${c.align};height:24px">${val}</td>`;
+    }).join("")}</tr>`).join("");
+    printHTML(`${officialHeader(etab,{classe:classe.nom,docTitle:titre})}
+      <table style="width:100%;border-collapse:collapse;margin-top:8px">
+        <thead><tr>${th}</tr></thead>
+        <tbody>${rowsEleves}${rowsVides}</tbody>
+      </table>`,`${titre} ${classe.nom}`);
+  };
+
+  return(
+    <div>
+      <SHdr title="Fiche de notes vierge 🖨️" sub="Composez et imprimez une fiche de notes à remplir à la main" action={classe&&<Btn ch="🖨️ Imprimer la fiche" v="primary" onClick={imprimer}/>}/>
+      {data.classes.length===0?<Card><Empty icon="🏫" text="Créez d'abord des classes."/></Card>:(<>
+        <Card s={{marginBottom:16}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:13}}>
+            <div>
+              <Lbl t="Classe"><select value={classeId} onChange={e=>setClasseId(e.target.value)} style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:13,fontWeight:600,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+                {CYCLES.map(cyc=>{const cls=data.classes.filter(c=>(c.niveau||"Primaire")===cyc);if(cls.length===0)return null;return(<optgroup key={cyc} label={cyc}>{cls.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</optgroup>);})}
+              </select></Lbl>
+            </div>
+            <Inp label="Titre du document" value={titre} onChange={e=>setTitre(e.target.value)}/>
+            <Inp label="Lignes vides en bas" type="number" value={lignesVides} onChange={e=>setLignesVides(Math.max(0,parseInt(e.target.value)||0))}/>
+          </div>
+          <div style={{fontSize:12,color:"#64748b",marginTop:6}}>👥 {eleves.length} élève(s) seront pré-remplis, plus {lignesVides} ligne(s) vide(s).</div>
+        </Card>
+
+        <Card s={{marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontWeight:800,fontSize:14,color:"#0f172a"}}>📐 Colonnes de la fiche</div>
+            <Btn ch="+ Ajouter une colonne" v="ghost" s={{padding:"6px 12px",fontSize:12}} onClick={addCol}/>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:9}}>
+            {cols.map((c,i)=>(
+              <div key={i} style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",background:"#f8fafc",borderRadius:10,padding:"8px 10px"}}>
+                <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                  <button onClick={()=>moveCol(i,-1)} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:5,cursor:"pointer",fontSize:9,lineHeight:1,padding:"1px 5px"}}>▲</button>
+                  <button onClick={()=>moveCol(i,1)} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:5,cursor:"pointer",fontSize:9,lineHeight:1,padding:"1px 5px"}}>▼</button>
+                </div>
+                <input value={c.nom} onChange={e=>setCol(i,"nom",e.target.value)} placeholder="Nom colonne" style={{flex:1,minWidth:120,padding:"7px 10px",borderRadius:8,border:"1.5px solid #e2e8f0",fontSize:12,fontWeight:600,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/>
+                {c.auto&&<span style={{fontSize:10,background:"#dbeafe",color:"#1a56db",borderRadius:6,padding:"2px 7px",fontWeight:700}}>auto: {c.auto}</span>}
+                <label style={{fontSize:10,color:"#94a3b8",display:"flex",alignItems:"center",gap:4}}>Largeur<input type="number" value={c.largeur} onChange={e=>setCol(i,"largeur",parseInt(e.target.value)||60)} style={{width:54,padding:"6px",borderRadius:7,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none"}}/></label>
+                <select value={c.align} onChange={e=>setCol(i,"align",e.target.value)} style={{padding:"6px 8px",borderRadius:7,border:"1.5px solid #e2e8f0",fontSize:11,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{ALIGNS.map(a=><option key={a.v} value={a.v}>{a.l}</option>)}</select>
+                <div style={{display:"flex",gap:3}}>{COULEURS.map(col=>(
+                  <button key={col} onClick={()=>setCol(i,"couleur",col)} style={{width:20,height:20,borderRadius:5,background:col,border:c.couleur===col?"2px solid #0f172a":"2px solid transparent",cursor:"pointer"}}/>
+                ))}</div>
+                <button onClick={()=>delCol(i)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"6px 9px",cursor:"pointer",fontSize:11}}>🗑️</button>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Aperçu */}
+        <Card s={{marginBottom:16}}>
+          <div style={{fontWeight:800,fontSize:14,color:"#0f172a",marginBottom:12}}>👁️ Aperçu</div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{borderCollapse:"collapse",width:"100%"}}>
+              <thead><tr>{cols.map((c,i)=><th key={i} style={{border:"1px solid #94a3b8",padding:"6px 8px",background:c.couleur,color:"#fff",fontSize:11,textAlign:c.align,minWidth:c.largeur}}>{c.nom}</th>)}</tr></thead>
+              <tbody>
+                {eleves.slice(0,3).map((e,i)=><tr key={e.id}>{cols.map((c,j)=>{let v="";if(c.auto==="nom")v=`${e.prenom||""} ${e.nom||""}`;else if(c.auto==="matricule")v=e.matricule||"";else if(c.nom==="N°")v=i+1;return <td key={j} style={{border:"1px solid #cbd5e1",padding:"6px 8px",fontSize:11,textAlign:c.align}}>{v}</td>;})}</tr>)}
+                {eleves.length>3&&<tr><td colSpan={cols.length} style={{textAlign:"center",fontSize:11,color:"#94a3b8",padding:6}}>… +{eleves.length-3} autre(s) élève(s)</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {/* Modèles */}
+        <Card>
+          <div style={{fontWeight:800,fontSize:14,color:"#0f172a",marginBottom:12}}>💾 Modèles enregistrés</div>
+          <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+            <input value={modeleNom} onChange={e=>setModeleNom(e.target.value)} placeholder="Nom du modèle (ex: Fiche trimestre)" style={{flex:1,minWidth:180,padding:"9px 12px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:13,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/>
+            <Btn ch="Enregistrer ce modèle" v="success" onClick={saveModele}/>
+          </div>
+          {modeles.length===0?<div style={{fontSize:12,color:"#94a3b8"}}>Aucun modèle enregistré. Composez votre fiche puis enregistrez-la pour la réutiliser.</div>:(
+            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+              {modeles.map(m=>(
+                <div key={m.nom} style={{display:"flex",alignItems:"center",gap:8,background:"#f8fafc",border:"1.5px solid #e2e8f0",borderRadius:9,padding:"6px 6px 6px 12px"}}>
+                  <button onClick={()=>chargerModele(m)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:700,color:"#1a56db"}}>{m.nom}</button>
+                  <button onClick={()=>supprModele(m.nom)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:6,padding:"3px 7px",cursor:"pointer",fontSize:11}}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </>)}
+    </div>
+  );
+}
+
 function Eleves({data,ops,etab}) {
   const [modal,setModal]=useState(null);const [search,setSearch]=useState("");const [filterCl,setFilterCl]=useState("");
   const [form,setForm]=useState({nom:"",prenom:"",classe_id:"",date_naissance:"",lieu_naissance:"",tuteur:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});
@@ -1848,6 +1988,7 @@ const NAV=[
   {id:"emploi",l:"Emploi du temps",icon:"🗓️"},
   {id:"notes",l:"Saisie des notes",icon:"📝"},
   {id:"bulletins",l:"Bulletins",icon:"📄"},
+  {id:"fiche_notes",l:"Fiche de notes",icon:"🖨️"},
   {id:"paiements",l:"Paiements",icon:"💰"},
   {id:"presences",l:"Présences",icon:"📅"},
   {id:"messagerie",l:"Messagerie",icon:"💬"},
@@ -1894,6 +2035,7 @@ function App() {
     emploi:<EmploiTemps data={data} ops={ops} etab={etab||{}}/>,
     notes:<Notes data={data} ops={ops} etab={etab||{}}/>,
     bulletins:<Bulletins data={data} etab={etab||{}}/>,
+    fiche_notes:<FicheNotes data={data} ops={ops} etab={etab||{}} onEtabUpdate={setEtab}/>,
     paiements:<Paiements data={data} ops={ops} etab={etab||{}}/>,
     presences:<Presences data={data} ops={ops} etab={etab||{}}/>,
     messagerie:<Messagerie data={data} ops={ops} currentUser={currentUser}/>,
