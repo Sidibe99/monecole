@@ -54,10 +54,40 @@ boot();
 const { useState, useEffect, useRef, useCallback } = React;
 const { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis } = Recharts;
 const { createClient } = supabase;
-// ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
-const SUPABASE_URL = "https://durbgghxbbhqtxncpdcq.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1cmJnZ2h4YmJocXR4bmNwZGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NjcyNjYsImV4cCI6MjA5NjI0MzI2Nn0.GK4Xpx1G31_e4m6BW8m9NojWo00O7SRbXfIIvx3vwvA";
+// ── SUPABASE CONFIG (par école, stockée dans le navigateur) ──────────────────
+// Valeurs par défaut = école de démonstration. Chaque école peut configurer les siennes.
+const DEFAULT_SUPABASE_URL = "https://durbgghxbbhqtxncpdcq.supabase.co";
+const DEFAULT_SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1cmJnZ2h4YmJocXR4bmNwZGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NjcyNjYsImV4cCI6MjA5NjI0MzI2Nn0.GK4Xpx1G31_e4m6BW8m9NojWo00O7SRbXfIIvx3vwvA";
+
+function readSupabaseConfig() {
+  try {
+    const url = localStorage.getItem("monecole_sb_url");
+    const anon = localStorage.getItem("monecole_sb_anon");
+    if (url && anon) return { url, anon, custom:true };
+  } catch(e) {}
+  return { url: DEFAULT_SUPABASE_URL, anon: DEFAULT_SUPABASE_ANON, custom:false };
+}
+
+const SB_CONFIG = readSupabaseConfig();
+const SUPABASE_URL = SB_CONFIG.url;
+const SUPABASE_ANON = SB_CONFIG.anon;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// Enregistre une nouvelle config Supabase (école) puis recharge l'app
+function saveSupabaseConfig(url, anon) {
+  try {
+    localStorage.setItem("monecole_sb_url", url.trim());
+    localStorage.setItem("monecole_sb_anon", anon.trim());
+    location.reload();
+  } catch(e) { alert("Impossible d'enregistrer la configuration sur cet appareil."); }
+}
+function resetSupabaseConfig() {
+  try {
+    localStorage.removeItem("monecole_sb_url");
+    localStorage.removeItem("monecole_sb_anon");
+    location.reload();
+  } catch(e) {}
+}
 
 // ── CODES ACTIVATION ──────────────────────────────────────────────────────────
 const CODES = ["MONECOLE-2026","ECOLE-ALPHA","ECOLE-BETA","ECOLE-DEMO","GNF-TEST"];
@@ -382,6 +412,8 @@ function Onboarding({codeActivation,onDone}) {
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 function Login({onLogin}) {
   const [id,setId]=useState("");const [pw,setPw]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
+  const [showCfg,setShowCfg]=useState(false);
+  const [cfgUrl,setCfgUrl]=useState("");const [cfgKey,setCfgKey]=useState("");
   const go=async()=>{
     setLoading(true);setErr("");
     try {
@@ -403,6 +435,18 @@ function Login({onLogin}) {
         <Lbl t="Mot de passe"><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} style={iSt()} placeholder="••••••••"/></Lbl>
         {err&&<div style={{background:"#fef2f2",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,marginBottom:12}}>{err}</div>}
         <Btn ch={loading?"Connexion...":"Se connecter →"} v="primary" onClick={go} disabled={!id||!pw||loading} full/>
+        <div style={{textAlign:"center",marginTop:16,paddingTop:14,borderTop:"1px solid #f1f5f9"}}>
+          <button onClick={()=>{setShowCfg(s=>!s);}} style={{background:"none",border:"none",color:"#94a3b8",fontSize:11,cursor:"pointer",fontWeight:600}}>⚙️ Configurer la base de données de l'école</button>
+        </div>
+        {showCfg&&<div style={{marginTop:12,background:"#f8fafc",borderRadius:12,padding:16}}>
+          <div style={{fontSize:11,color:"#64748b",marginBottom:12,lineHeight:1.5}}>Chaque école a sa propre base isolée. Collez l'<b>URL</b> et la <b>clé anon</b> de votre projet Supabase. {SB_CONFIG.custom?<span style={{color:"#059669",fontWeight:700}}>✓ Base personnalisée active.</span>:<span style={{color:"#c2410c",fontWeight:700}}>Base de démonstration active.</span>}</div>
+          <Inp label="URL du projet Supabase" value={cfgUrl} onChange={e=>setCfgUrl(e.target.value)} placeholder="https://xxxx.supabase.co"/>
+          <Lbl t="Clé anon (public)"><textarea value={cfgKey} onChange={e=>setCfgKey(e.target.value)} style={{...iSt(),minHeight:60,resize:"vertical",fontFamily:"monospace",fontSize:10}} placeholder="eyJhbGc..."/></Lbl>
+          <div style={{display:"flex",gap:8}}>
+            <Btn ch="Enregistrer & recharger" v="success" s={{flex:1}} onClick={()=>{if(cfgUrl.trim()&&cfgKey.trim())saveSupabaseConfig(cfgUrl,cfgKey);}} disabled={!cfgUrl.trim()||!cfgKey.trim()}/>
+            {SB_CONFIG.custom&&<Btn ch="Réinitialiser" v="ghost" onClick={resetSupabaseConfig}/>}
+          </div>
+        </div>}
       </div>
     </div>
   );
