@@ -555,11 +555,11 @@ function Dashboard({data,etab,setPage}) {
       {/* Répartition garçons / filles */}
       {(totG+totF)>0&&<div style={{display:"flex",gap:13,marginBottom:14,flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:150,background:"linear-gradient(135deg,#eff6ff,#fff)",borderRadius:16,padding:"16px 20px",border:"1px solid #3b82f622"}}>
-          <div style={{fontSize:12,fontWeight:800,color:"#2563eb"}}>👦 GARÇONS</div>
+          <div style={{fontSize:12,fontWeight:800,color:"#2563eb"}}>{"\u{1F466}"} GARÇONS</div>
           <div style={{fontSize:30,fontWeight:900,color:"#0f172a"}}>{totG}<span style={{fontSize:13,color:"#94a3b8",fontWeight:600}}> · {data.eleves.length?Math.round(totG/data.eleves.length*100):0}%</span></div>
         </div>
         <div style={{flex:1,minWidth:150,background:"linear-gradient(135deg,#fdf2f8,#fff)",borderRadius:16,padding:"16px 20px",border:"1px solid #db277722"}}>
-          <div style={{fontSize:12,fontWeight:800,color:"#db2777"}}>👧 FILLES</div>
+          <div style={{fontSize:12,fontWeight:800,color:"#db2777"}}>{"\u{1F467}"} FILLES</div>
           <div style={{fontSize:30,fontWeight:900,color:"#0f172a"}}>{totF}<span style={{fontSize:13,color:"#94a3b8",fontWeight:600}}> · {data.eleves.length?Math.round(totF/data.eleves.length*100):0}%</span></div>
         </div>
       </div>}
@@ -570,7 +570,7 @@ function Dashboard({data,etab,setPage}) {
             <div style={{fontSize:12,fontWeight:800,color:ci.c,letterSpacing:.3}}>{ci.emoji} {ci.cyc.toUpperCase()}</div>
             <div style={{fontSize:34,fontWeight:900,color:"#0f172a",lineHeight:1.1,marginTop:6}}>{n}</div>
             <div style={{fontSize:11,color:"#94a3b8",fontWeight:600}}>élève(s) · {pct}%</div>
-            {(g+f)>0&&<div style={{fontSize:11,color:"#64748b",fontWeight:600,marginTop:2}}>👦 {g} · 👧 {f}</div>}
+            {(g+f)>0&&<div style={{fontSize:11,color:"#64748b",fontWeight:600,marginTop:2}}>{"\u{1F466}"} {g} · {"\u{1F467}"} {f}</div>}
             <div style={{position:"absolute",right:-10,bottom:-10,fontSize:64,opacity:0.06}}>{ci.emoji}</div>
           </div>
         );})}
@@ -1222,7 +1222,7 @@ function Eleves({data,ops,etab}) {
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 18px",background:"#f8fafc",borderBottom:"1px solid #eef2f7"}}>
                   <div style={{fontWeight:800,fontSize:14,color:"#0f172a"}}>🏫 {cl.nom}</div>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    {(()=>{const g=elevesClasse.filter(e=>e.genre==="M").length;const f=elevesClasse.filter(e=>e.genre==="F").length;return (g+f)>0?<span style={{fontSize:11,color:"#64748b",fontWeight:600}}>👦 {g} · 👧 {f}</span>:null;})()}
+                    {(()=>{const g=elevesClasse.filter(e=>e.genre==="M").length;const f=elevesClasse.filter(e=>e.genre==="F").length;return (g+f)>0?<span style={{fontSize:11,color:"#64748b",fontWeight:600}}>M : {g} · F : {f}</span>:null;})()}
                     <span style={{background:"#1a56db",color:"#fff",borderRadius:20,padding:"3px 13px",fontSize:12,fontWeight:800}}>{elevesClasse.length} élève(s)</span>
                   </div>
                 </div>
