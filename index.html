@@ -410,7 +410,7 @@ function Login({onLogin}) {
 
 // ── HOOK SUPABASE DATA ────────────────────────────────────────────────────────
 function useSupabaseData(etablissementId) {
-  const [data,setData]=useState({classes:[],matieres:[],eleves:[],utilisateurs:[],paiements:[],presences:[],messages:[],compositions:[],professeurs:[],salaires:[],absences_prof:[]});
+  const [data,setData]=useState({classes:[],matieres:[],eleves:[],utilisateurs:[],paiements:[],presences:[],messages:[],compositions:[],professeurs:[],salaires:[],absences_prof:[],emploi_temps:[]});
   const [syncStatus,setSyncStatus]=useState("online");
   const [toast,setToast]=useState(null);
 
@@ -420,7 +420,7 @@ function useSupabaseData(etablissementId) {
     if(!etablissementId)return;
     setSyncStatus("syncing");
     try {
-      const [cls,mats,elvs,usrs,pays,pres,msgs,comps,profs,sals,absp]=await Promise.all([
+      const [cls,mats,elvs,usrs,pays,pres,msgs,comps,profs,sals,absp,edt]=await Promise.all([
         sb.from("classes").select("*").eq("etablissement_id",etablissementId).order("nom"),
         sb.from("matieres").select("*").eq("etablissement_id",etablissementId).order("nom"),
         sb.from("eleves").select("*").eq("etablissement_id",etablissementId).order("nom"),
@@ -432,12 +432,14 @@ function useSupabaseData(etablissementId) {
         sb.from("professeurs").select("*").eq("etablissement_id",etablissementId).order("nom"),
         sb.from("salaires").select("*").eq("etablissement_id",etablissementId).order("created_at",{ascending:false}),
         sb.from("absences_prof").select("*").eq("etablissement_id",etablissementId),
+        sb.from("emploi_temps").select("*").eq("etablissement_id",etablissementId),
       ]);
       setData({
         classes:cls.data||[],matieres:mats.data||[],eleves:elvs.data||[],
         utilisateurs:usrs.data||[],paiements:pays.data||[],presences:pres.data||[],
         messages:msgs.data||[],compositions:comps.data||[],
-        professeurs:profs.data||[],salaires:sals.data||[],absences_prof:absp.data||[]
+        professeurs:profs.data||[],salaires:sals.data||[],absences_prof:absp.data||[],
+        emploi_temps:edt.data||[]
       });
       setSyncStatus("online");
     } catch(e){setSyncStatus("offline");showToast("Erreur de synchronisation","error");}
@@ -494,6 +496,9 @@ function useSupabaseData(etablissementId) {
       if(statut==="absent"){await sb.from("absences_prof").insert({prof_id:profId,date,motif:motif||"",etablissement_id:etablissementId});}
       load();
     },
+    addCreneau: async(form)=>{const{error}=await sb.from("emploi_temps").insert({...form,etablissement_id:etablissementId});if(!error){load();showToast("Créneau ajouté");}else showToast(error.message,"error");},
+    updateCreneau: async(id,form)=>{const{error}=await sb.from("emploi_temps").update(form).eq("id",id);if(!error){load();showToast("Créneau modifié");}else showToast(error.message,"error");},
+    deleteCreneau: async(id)=>{await sb.from("emploi_temps").delete().eq("id",id);load();showToast("Créneau supprimé");},
 
     togglePresence: async(eleveId,classeId,present)=>{
       await sb.from("presences").delete().match({eleve_id:eleveId,classe_id:classeId,date:TODAY,etablissement_id:etablissementId});
@@ -898,6 +903,112 @@ function ProfDetail({prof,data,ops,etab,devise,onBack}) {
         </div>
         <Inp label="Note (facultatif)" value={salForm.note} onChange={e=>setSalForm(f=>({...f,note:e.target.value}))}/>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:6}}><Btn ch="Annuler" v="ghost" onClick={()=>setModalSal(false)}/><Btn ch={loading?"...":"💾 Enregistrer"} v="success" onClick={saveSal} disabled={loading}/></div>
+      </Modal>}
+    </div>
+  );
+}
+
+function EmploiTemps({data,ops,etab}) {
+  const JOURS=["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+  const [classeId,setClasseId]=useState(data.classes[0]?.id||"");
+  const [modal,setModal]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const blank={jour:"Lundi",debut:"08:00",fin:"09:00",matiere_id:"",prof_id:"",salle:""};
+  const [form,setForm]=useState(blank);
+  const classe=data.classes.find(c=>c.id===parseInt(classeId));
+  const creneaux=(data.emploi_temps||[]).filter(c=>c.classe_id===parseInt(classeId)).sort((a,b)=>(a.debut||"").localeCompare(b.debut||""));
+  const matsClasse=data.matieres.filter(m=>!m.cycles||m.cycles.length===0||m.cycles.includes(classe?.niveau));
+  const save=async()=>{
+    if(!form.matiere_id){return;}
+    setLoading(true);
+    const payload={...form,classe_id:parseInt(classeId),matiere_id:parseInt(form.matiere_id),prof_id:form.prof_id?parseInt(form.prof_id):null};
+    if(modal==="add")await ops.addCreneau(payload);else await ops.updateCreneau(modal,payload);
+    setLoading(false);setModal(null);
+  };
+  const openNew=(jour)=>{setForm({...blank,jour:jour||"Lundi"});setModal("add");};
+  const matNom=id=>data.matieres.find(m=>m.id===id)?.nom||"—";
+  const profNom=id=>{const p=data.professeurs?.find(x=>x.id===id);return p?`${p.prenom} ${p.nom}`:"";};
+  const printEDT=()=>{
+    if(!classe)return;
+    const byJour=JOURS.map(j=>({j,items:creneaux.filter(c=>c.jour===j)})).filter(x=>x.items.length>0);
+    const corps=byJour.map(({j,items})=>`
+      <div style="margin-bottom:10px">
+        <div style="background:#1a56db;color:#fff;font-weight:700;padding:5px 10px;border-radius:6px 6px 0 0;font-size:12px">${j}</div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr style="background:#f1f5f9">
+            <th style="border:1px solid #e2e8f0;padding:5px;text-align:left">Horaire</th>
+            <th style="border:1px solid #e2e8f0;padding:5px;text-align:left">Matière</th>
+            <th style="border:1px solid #e2e8f0;padding:5px;text-align:left">Professeur</th>
+            <th style="border:1px solid #e2e8f0;padding:5px;text-align:left">Salle</th>
+          </tr></thead>
+          <tbody>${items.map(c=>`<tr>
+            <td style="border:1px solid #e2e8f0;padding:5px"><b>${c.debut} - ${c.fin}</b></td>
+            <td style="border:1px solid #e2e8f0;padding:5px">${matNom(c.matiere_id)}</td>
+            <td style="border:1px solid #e2e8f0;padding:5px">${profNom(c.prof_id)||"—"}</td>
+            <td style="border:1px solid #e2e8f0;padding:5px">${c.salle||"—"}</td>
+          </tr>`).join("")}</tbody>
+        </table>
+      </div>`).join("");
+    printHTML(`${officialHeader(etab,{classe:classe.nom,docTitle:"EMPLOI DU TEMPS"})}${corps||"<p>Aucun cours programmé.</p>"}`,`Emploi du temps ${classe.nom}`);
+  };
+  return(
+    <div>
+      <SHdr title="Emploi du temps 🗓️" sub={classe?`Classe : ${classe.nom}`:"Choisissez une classe"} action={creneaux.length>0&&<Btn ch="🖨️ Imprimer" v="ghost" onClick={printEDT}/>}/>
+      {data.classes.length===0?<Card><Empty icon="🏫" text="Créez d'abord des classes."/></Card>:(<>
+        <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:18,flexWrap:"wrap"}}>
+          <select value={classeId} onChange={e=>setClasseId(e.target.value)} style={{padding:"9px 13px",borderRadius:10,border:"1.5px solid #e2e8f0",fontSize:13,fontWeight:700,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",color:"#0f172a"}}>
+            {CYCLES.map(cyc=>{const cls=data.classes.filter(c=>(c.niveau||"Primaire")===cyc);if(cls.length===0)return null;return(
+              <optgroup key={cyc} label={cyc}>{cls.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</optgroup>
+            );})}
+          </select>
+          <Btn ch="+ Ajouter un cours" v="primary" onClick={()=>openNew()}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
+          {JOURS.map(jour=>{
+            const items=creneaux.filter(c=>c.jour===jour);
+            return(
+              <Card key={jour} s={{padding:0,overflow:"hidden"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 15px",background:"#1a56db"}}>
+                  <span style={{fontWeight:800,fontSize:14,color:"#fff"}}>{jour}</span>
+                  <button onClick={()=>openNew(jour)} style={{background:"rgba(255,255,255,0.2)",color:"#fff",border:"none",borderRadius:7,width:26,height:26,cursor:"pointer",fontSize:16,lineHeight:1}}>+</button>
+                </div>
+                <div style={{padding:12}}>
+                  {items.length===0?<div style={{fontSize:12,color:"#cbd5e1",textAlign:"center",padding:"14px 0"}}>Aucun cours</div>:(
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {items.map(c=>(
+                        <div key={c.id} style={{background:"#f8fafc",borderRadius:10,padding:"9px 11px",borderLeft:"3px solid #1a56db"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:11,fontWeight:800,color:"#1a56db"}}>{c.debut} - {c.fin}</div>
+                              <div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{matNom(c.matiere_id)}</div>
+                              {profNom(c.prof_id)&&<div style={{fontSize:11,color:"#64748b"}}>👨‍🏫 {profNom(c.prof_id)}</div>}
+                              {c.salle&&<div style={{fontSize:11,color:"#64748b"}}>📍 {c.salle}</div>}
+                            </div>
+                            <div style={{display:"flex",gap:4}}>
+                              <button onClick={()=>{setForm({jour:c.jour,debut:c.debut,fin:c.fin,matiere_id:String(c.matiere_id||""),prof_id:String(c.prof_id||""),salle:c.salle||""});setModal(c.id);}} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:6,padding:"3px 6px",cursor:"pointer",fontSize:10}}>✏️</button>
+                              <button onClick={()=>ops.deleteCreneau(c.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"3px 6px",cursor:"pointer",fontSize:10}}>🗑️</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </>)}
+      {modal&&<Modal title={modal==="add"?"Ajouter un cours":"Modifier le cours"} onClose={()=>setModal(null)}>
+        <Slt label="Jour" value={form.jour} onChange={e=>setForm(f=>({...f,jour:e.target.value}))} opts={JOURS.map(j=>({v:j,l:j}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 13px"}}>
+          <Inp label="Heure début" type="time" value={form.debut} onChange={e=>setForm(f=>({...f,debut:e.target.value}))}/>
+          <Inp label="Heure fin" type="time" value={form.fin} onChange={e=>setForm(f=>({...f,fin:e.target.value}))}/>
+        </div>
+        <Slt label="Matière *" value={form.matiere_id} onChange={e=>setForm(f=>({...f,matiere_id:e.target.value}))} opts={[{v:"",l:"— Choisir —"},...matsClasse.map(m=>({v:String(m.id),l:m.nom}))]}/>
+        <Slt label="Professeur" value={form.prof_id} onChange={e=>setForm(f=>({...f,prof_id:e.target.value}))} opts={[{v:"",l:"— Aucun —"},...(data.professeurs||[]).map(p=>({v:String(p.id),l:`${p.prenom} ${p.nom}`}))]}/>
+        <Inp label="Salle" value={form.salle} onChange={e=>setForm(f=>({...f,salle:e.target.value}))} placeholder="Ex: Salle 3"/>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:6}}><Btn ch="Annuler" v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":"Enregistrer"} v="success" onClick={save} disabled={loading}/></div>
       </Modal>}
     </div>
   );
@@ -1734,6 +1845,7 @@ const NAV=[
   {id:"matieres",l:"Matières",icon:"📖"},
   {id:"eleves",l:"Élèves",icon:"👨‍🎓"},
   {id:"professeurs",l:"Professeurs",icon:"👨‍🏫"},
+  {id:"emploi",l:"Emploi du temps",icon:"🗓️"},
   {id:"notes",l:"Saisie des notes",icon:"📝"},
   {id:"bulletins",l:"Bulletins",icon:"📄"},
   {id:"paiements",l:"Paiements",icon:"💰"},
@@ -1779,6 +1891,7 @@ function App() {
     matieres:<Matieres data={data} ops={ops}/>,
     eleves:<Eleves data={data} ops={ops} etab={etab||{}}/>,
     professeurs:<Professeurs data={data} ops={ops} etab={etab||{}}/>,
+    emploi:<EmploiTemps data={data} ops={ops} etab={etab||{}}/>,
     notes:<Notes data={data} ops={ops} etab={etab||{}}/>,
     bulletins:<Bulletins data={data} etab={etab||{}}/>,
     paiements:<Paiements data={data} ops={ops} etab={etab||{}}/>,
