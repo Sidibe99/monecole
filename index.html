@@ -555,11 +555,11 @@ function Dashboard({data,etab,setPage}) {
       {/* Répartition garçons / filles */}
       {(totG+totF)>0&&<div style={{display:"flex",gap:13,marginBottom:14,flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:150,background:"linear-gradient(135deg,#eff6ff,#fff)",borderRadius:16,padding:"16px 20px",border:"1px solid #3b82f622"}}>
-          <div style={{fontSize:12,fontWeight:800,color:"#2563eb"}}>{"\u{1F466}"} GARÇONS</div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:26,height:26,borderRadius:8,background:"#2563eb",color:"#fff",fontWeight:900,fontSize:14}}>M</span><span style={{fontSize:12,fontWeight:800,color:"#2563eb"}}>MASCULIN</span></div>
           <div style={{fontSize:30,fontWeight:900,color:"#0f172a"}}>{totG}<span style={{fontSize:13,color:"#94a3b8",fontWeight:600}}> · {data.eleves.length?Math.round(totG/data.eleves.length*100):0}%</span></div>
         </div>
         <div style={{flex:1,minWidth:150,background:"linear-gradient(135deg,#fdf2f8,#fff)",borderRadius:16,padding:"16px 20px",border:"1px solid #db277722"}}>
-          <div style={{fontSize:12,fontWeight:800,color:"#db2777"}}>{"\u{1F467}"} FILLES</div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:26,height:26,borderRadius:8,background:"#db2777",color:"#fff",fontWeight:900,fontSize:14}}>F</span><span style={{fontSize:12,fontWeight:800,color:"#db2777"}}>FÉMININ</span></div>
           <div style={{fontSize:30,fontWeight:900,color:"#0f172a"}}>{totF}<span style={{fontSize:13,color:"#94a3b8",fontWeight:600}}> · {data.eleves.length?Math.round(totF/data.eleves.length*100):0}%</span></div>
         </div>
       </div>}
@@ -570,7 +570,7 @@ function Dashboard({data,etab,setPage}) {
             <div style={{fontSize:12,fontWeight:800,color:ci.c,letterSpacing:.3}}>{ci.emoji} {ci.cyc.toUpperCase()}</div>
             <div style={{fontSize:34,fontWeight:900,color:"#0f172a",lineHeight:1.1,marginTop:6}}>{n}</div>
             <div style={{fontSize:11,color:"#94a3b8",fontWeight:600}}>élève(s) · {pct}%</div>
-            {(g+f)>0&&<div style={{fontSize:11,color:"#64748b",fontWeight:600,marginTop:2}}>{"\u{1F466}"} {g} · {"\u{1F467}"} {f}</div>}
+            {(g+f)>0&&<div style={{display:"flex",gap:6,marginTop:5}}><span style={{fontSize:11,fontWeight:700,color:"#2563eb",background:"#eff6ff",borderRadius:6,padding:"1px 7px"}}>M : {g}</span><span style={{fontSize:11,fontWeight:700,color:"#db2777",background:"#fdf2f8",borderRadius:6,padding:"1px 7px"}}>F : {f}</span></div>}
             <div style={{position:"absolute",right:-10,bottom:-10,fontSize:64,opacity:0.06}}>{ci.emoji}</div>
           </div>
         );})}
@@ -1222,7 +1222,7 @@ function Eleves({data,ops,etab}) {
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 18px",background:"#f8fafc",borderBottom:"1px solid #eef2f7"}}>
                   <div style={{fontWeight:800,fontSize:14,color:"#0f172a"}}>🏫 {cl.nom}</div>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    {(()=>{const g=elevesClasse.filter(e=>e.genre==="M").length;const f=elevesClasse.filter(e=>e.genre==="F").length;return (g+f)>0?<span style={{fontSize:11,color:"#64748b",fontWeight:600}}>M : {g} · F : {f}</span>:null;})()}
+                    {(()=>{const g=elevesClasse.filter(e=>e.genre==="M").length;const f=elevesClasse.filter(e=>e.genre==="F").length;return (g+f)>0?<span style={{display:"inline-flex",gap:5}}><span style={{fontSize:11,fontWeight:700,color:"#2563eb",background:"#eff6ff",borderRadius:6,padding:"1px 7px"}}>M : {g}</span><span style={{fontSize:11,fontWeight:700,color:"#db2777",background:"#fdf2f8",borderRadius:6,padding:"1px 7px"}}>F : {f}</span></span>:null;})()}
                     <span style={{background:"#1a56db",color:"#fff",borderRadius:20,padding:"3px 13px",fontSize:12,fontWeight:800}}>{elevesClasse.length} élève(s)</span>
                   </div>
                 </div>
@@ -2071,7 +2071,7 @@ function App() {
         <div style={{padding:"18px 13px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
           <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:11}}>
             <div style={{width:36,height:36,borderRadius:10,background:etab?.logo?"#fff":"#1a56db",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,overflow:"hidden",border:etab?.logo?"1px solid rgba(255,255,255,0.15)":"none"}}>{etab?.logo?<img src={etab.logo} alt="logo" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:"🎓"}</div>
-            <div><div style={{fontWeight:900,fontSize:15,color:"#fff",letterSpacing:-0.5}}>MonEcole</div><div style={{fontSize:9,color:"rgba(255,255,255,0.32)"}}>v4.0 · Cloud</div></div>
+            <div><div style={{fontWeight:900,fontSize:15,color:"#fff",letterSpacing:-0.5}}>MonEcole</div></div>
           </div>
           <div style={{padding:"9px 11px",background:"rgba(255,255,255,0.06)",borderRadius:9,border:"1px solid rgba(255,255,255,0.07)",marginBottom:8}}>
             <div style={{fontSize:10,color:"rgba(255,255,255,0.37)",marginBottom:1}}>Connecté</div>
