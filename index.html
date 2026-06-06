@@ -12,30 +12,48 @@
     ::-webkit-scrollbar{width:6px}
     ::-webkit-scrollbar-track{background:#f1f5f9}
     ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+    #loading{display:flex;align-items:center;justify-content:center;height:100vh;font-size:18px;color:#1a56db;font-weight:700}
   </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div id="loading">Chargement de MonEcole...</div></div>
 
-<!-- React 18 -->
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<!-- Recharts -->
-<script src="https://unpkg.com/recharts@2.10.0/umd/Recharts.js"></script>
-<!-- Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<!-- Babel Standalone -->
-<script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
+<script>
+// Charger les scripts dans l'ordre, en série, pour garantir que tout soit prêt
+function loadScript(src) {
+  return new Promise(function(resolve, reject) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = function() { reject(new Error('Echec chargement: ' + src)); };
+    document.head.appendChild(s);
+  });
+}
 
-<script type="text/babel" data-presets="react">
+async function boot() {
+  try {
+    await loadScript('https://unpkg.com/react@18/umd/react.production.min.js');
+    await loadScript('https://unpkg.com/react-dom@18/umd/react-dom.production.min.js');
+    await loadScript('https://unpkg.com/prop-types@15.8.1/prop-types.min.js');
+    await loadScript('https://unpkg.com/recharts@2.10.0/umd/Recharts.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js');
+    await loadScript('https://unpkg.com/@babel/standalone@7.23.6/babel.min.js');
+    
+    // Une fois tout chargé, transformer et exécuter le code
+    var code = document.getElementById('app-code').textContent;
+    var transformed = Babel.transform(code, { presets: ['react'] }).code;
+    eval(transformed);
+  } catch(e) {
+    document.getElementById('root').innerHTML = '<div style="padding:40px;color:#dc2626;font-family:sans-serif"><h2>Erreur de chargement</h2><p>' + e.message + '</p></div>';
+  }
+}
+boot();
+</script>
+
+<script type="text/plain" id="app-code">
 const { useState, useEffect, useRef, useCallback } = React;
 const { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis } = Recharts;
 const { createClient } = supabase;
-
-
-
-
-
 // ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://durbgghxbbhqtxncpdcq.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1cmJnZ2h4YmJocXR4bmNwZGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NjcyNjYsImV4cCI6MjA5NjI0MzI2Nn0.GK4Xpx1G31_e4m6BW8m9NojWo00O7SRbXfIIvx3vwvA";
@@ -47,12 +65,29 @@ const CODES = ["MONECOLE-2026","ECOLE-ALPHA","ECOLE-BETA","ECOLE-DEMO","GNF-TEST
 // ── CONSTANTES ────────────────────────────────────────────────────────────────
 const DEVISES = { GNF:{symbole:"GNF",nom:"Franc Guinéen"}, XOF:{symbole:"FCFA",nom:"Franc CFA"} };
 const ROLE_CLR = {Administrateur:"#f59e0b",Professeur:"#3b82f6","Secrétaire":"#10b981",Directeur:"#8b5cf6",Comptable:"#ec4899"};
-const MENTION = v => {
-  const n=parseFloat(v);
-  if(n>=16) return{t:"Très Bien",c:"#10b981",bg:"#d1fae5"};
-  if(n>=14) return{t:"Bien",c:"#3b82f6",bg:"#dbeafe"};
-  if(n>=12) return{t:"Assez Bien",c:"#8b5cf6",bg:"#ede9fe"};
-  if(n>=10) return{t:"Passable",c:"#f59e0b",bg:"#fef3c7"};
+// Barème selon le cycle : Primaire = /10, Collège & Lycée = /20
+const CYCLES = ["Maternelle","Primaire","Collège","Lycée"];
+// Niveaux standard guinéens par cycle
+const NIVEAUX_CYCLE = {
+  "Maternelle":["Petite Section","Moyenne Section","Grande Section"],
+  "Primaire":["1ère Année","2ème Année","3ème Année","4ème Année","5ème Année","6ème Année"],
+  "Collège":["7ème Année","8ème Année","9ème Année","10ème Année"],
+  "Lycée":["11ème","12ème","Terminale"]
+};
+// Séries du lycée
+const SERIES = ["Scientifique","Littéraire"];
+// Appréciations préscolaire (si l'école choisit ce mode)
+const APPRECIATIONS_MATERNELLE = ["Acquis","En cours d'acquisition","Non acquis"];
+const baremeOf = niveau => (niveau==="Primaire"||niveau==="Maternelle") ? 10 : 20;
+// Mode d'évaluation de la maternelle selon l'établissement : "note" (/10) ou "appreciation"
+const modeMaternelle = etab => etab?.mode_maternelle==="appreciation" ? "appreciation" : "note";
+// Mention adaptée au barème (les seuils sont proportionnels : /10 → moitié des seuils /20)
+const MENTION = (v, bareme=20) => {
+  const n=parseFloat(v); const f=bareme/20;
+  if(n>=16*f) return{t:"Très Bien",c:"#10b981",bg:"#d1fae5"};
+  if(n>=14*f) return{t:"Bien",c:"#3b82f6",bg:"#dbeafe"};
+  if(n>=12*f) return{t:"Assez Bien",c:"#8b5cf6",bg:"#ede9fe"};
+  if(n>=10*f) return{t:"Passable",c:"#f59e0b",bg:"#fef3c7"};
   return{t:"Insuffisant",c:"#ef4444",bg:"#fee2e2"};
 };
 const fmtMoney = (v,d="GNF") => !v&&v!==0?"—":Number(v).toLocaleString("fr-FR")+" "+(DEVISES[d]?.symbole||d);
@@ -64,25 +99,124 @@ const calcMoy = (notes,mats,periode) => {
 const periodesList = sys => sys==="semestre"?["Semestre 1","Semestre 2"]:["Trimestre 1","Trimestre 2","Trimestre 3"];
 const TODAY = new Date().toISOString().split("T")[0];
 
+// ── PAIEMENTS : échéances ─────────────────────────────────────────────────────
+// Mois de l'année scolaire guinéenne (octobre → juin/juillet)
+const MOIS_SCOLAIRES = ["Octobre","Novembre","Décembre","Janvier","Février","Mars","Avril","Mai","Juin","Juillet"];
+// Renvoie la liste des échéances selon le mode de l'établissement
+const echeancesList = (etab={}) => {
+  if((etab.mode_paiement||"mensualite")==="tranche"){
+    const n=parseInt(etab.nb_tranches)||3;
+    return Array.from({length:n},(_,i)=>`Tranche ${i+1}`);
+  }
+  // mensualité : utilise la liste personnalisée si définie, sinon les mois standard
+  if(etab.mois_personnalises) return etab.mois_personnalises.split(",").map(s=>s.trim()).filter(Boolean);
+  return MOIS_SCOLAIRES;
+};
+// Total des frais annuels d'un élève (sa valeur propre, sinon le défaut de l'école)
+// Cascade des frais : valeur de l'élève → sinon de sa classe → sinon défaut école
+const fraisAnnuelEleve = (eleve={},etab={},classe=null) => {
+  const v=eleve.frais_annuel; if(v!=null&&v!=="") return parseFloat(v)||0;
+  const fc=classe?.frais_annuel_classe; if(fc!=null&&fc!=="") return parseFloat(fc)||0;
+  return parseFloat(etab.frais_annuel_defaut)||0;
+};
+// Frais d'inscription : élève → classe → défaut école
+const fraisInscEleve = (eleve={},etab={},classe=null) => {
+  const v=eleve.frais_inscription_eleve; if(v!=null&&v!=="") return parseFloat(v)||0;
+  const fc=classe?.frais_inscription_classe; if(fc!=null&&fc!=="") return parseFloat(fc)||0;
+  return parseFloat(etab.fraisInscription)||0;
+};
+
+// ── EN-TÊTE OFFICIEL ──────────────────────────────────────────────────────────
+// Génère l'en-tête administratif officiel commun à tous les imprimés.
+// etab = établissement, opts = {classe, docTitle}
+const officialHeader = (etab={}, opts={}) => {
+  const pays = etab.pays || "République de Guinée";
+  const deviseNat = etab.devise_nationale || "Travail · Justice · Solidarité";
+  const ministere = etab.ministere || "Ministère de l'Éducation Nationale et de l'Alphabétisation";
+  const ire = etab.ire || "";
+  const dpe = etab.dpe || "";
+  const dsee = etab.dsee || "";
+  const classe = opts.classe || "";
+  const docTitle = opts.docTitle || "";
+  const lignes = Array.isArray(etab.entete_lignes)?etab.entete_lignes:[];
+  const lignesHTML = lignes.filter(l=>l&&l.texte).map(l=>`<div style="text-align:${l.pos||"center"};font-weight:${l.gras?"700":"400"};font-size:11px;color:#334155">${l.texte}</div>`).join("");
+  return `<div class="oh">
+    ${etab.logo?`<div style="text-align:center;margin-bottom:6px"><img src="${etab.logo}" style="max-height:62px;max-width:130px;object-fit:contain"/></div>`:""}
+    <div class="oh-top">
+      <div class="oh-pays">${pays}</div>
+      <div class="oh-devise">${deviseNat}</div>
+    </div>
+    <div class="oh-body">
+      <div class="oh-left">
+        <div>${ministere}</div>
+        ${ire?`<div><b>IRE :</b> ${ire}</div>`:""}
+        ${dpe?`<div><b>DPE :</b> ${dpe}</div>`:""}
+        ${dsee?`<div><b>DSEE :</b> ${dsee}</div>`:""}
+        <div><b>École :</b> ${etab.nom||""}</div>
+        ${classe?`<div><b>Classe :</b> ${classe}</div>`:""}
+        ${etab.codeMEN?`<div><b>Code MEN :</b> ${etab.codeMEN}</div>`:""}
+      </div>
+      <div class="oh-right">
+        ${etab.annee?`<div><b>Année :</b> ${etab.annee}</div>`:""}
+        ${etab.telephone?`<div>Tél : ${etab.telephone}</div>`:""}
+        ${etab.email?`<div>${etab.email}</div>`:""}
+      </div>
+    </div>
+    ${lignesHTML?`<div style="margin-top:6px">${lignesHTML}</div>`:""}
+    ${docTitle?`<div class="oh-title">${docTitle}</div>`:""}
+  </div>`;
+};
+
 // ── PRINT HELPER ──────────────────────────────────────────────────────────────
-const printHTML = (html, title="MonEcole") => {
+const printHTML = (html, title="MonEcole", opts={}) => {
   const w=window.open("","_blank");
+  const bodyPad = opts.compact ? "0" : "28px";
   w.document.write(`<html><head><title>${title}</title><style>
-    *{box-sizing:border-box} body{font-family:Arial,sans-serif;padding:20px;color:#000;margin:0}
-    table{width:100%;border-collapse:collapse} td,th{border:1px solid #ccc;padding:7px 10px;font-size:12px}
-    th{background:#f0f0f0;font-weight:700} h1{font-size:18px;margin:0 0 4px} h2{font-size:15px;margin:0 0 10px}
+    *{box-sizing:border-box} body{font-family:'Segoe UI',Helvetica,Arial,sans-serif;padding:${bodyPad};color:#1e293b;margin:0;font-size:13px;line-height:1.5}
+    table{width:100%;border-collapse:collapse;margin:6px 0} td,th{border:1px solid #d8dee9;padding:8px 11px;font-size:12px}
+    th{background:#1a56db;color:#fff;font-weight:700;text-align:left} tr:nth-child(even) td{background:#f7f9fc}
+    h1{font-size:18px;margin:0 0 4px} h2{font-size:15px;margin:0 0 10px}
+    /* En-tête officiel */
+    .oh{margin-bottom:18px}
+    .oh-top{text-align:center;margin-bottom:10px}
+    .oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}
+    .oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}
+    .oh-body{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}
+    .oh-left>div,.oh-right>div{margin:1px 0}
+    .oh-right{text-align:right}
+    .oh-title{text-align:center;margin-top:12px;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid #1a56db;border-radius:8px;padding:7px 0;background:#eff6ff}
+    /* Anciens en-têtes conservés pour compat */
     .header{text-align:center;border-bottom:3px solid #1a56db;padding-bottom:14px;margin-bottom:18px}
-    .grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;background:#f8fafc;padding:14px;border-radius:8px;margin-bottom:16px}
-    .result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:8px;margin-top:14px}
+    .grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:16px;border:1px solid #e8edf4}
+    .result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}
     .stat{text-align:center} .stat-val{font-size:26px;font-weight:900} .stat-lbl{font-size:10px;color:#666;text-transform:uppercase}
-    .page-break{page-break-after:always} @media print{.noprint{display:none}}
+    .sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}
+    /* Reçu compact moderne (demi-page A4) */
+    .recu{width:135mm;max-width:100%;margin:0 auto;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+    .recu-officiel{text-align:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #e2e8f0}
+    .recu-pays{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:#0f172a}
+    .recu-devise{font-size:9px;font-style:italic;color:#475569;margin-top:1px}
+    .recu-minist{font-size:9px;color:#334155;margin-top:3px}
+    .recu-iredpe{font-size:9px;color:#64748b;margin-top:1px}
+    .recu-head{display:flex;align-items:center;gap:11px;padding-bottom:11px;border-bottom:2px solid #1a56db}
+    .recu-logo{width:42px;height:42px;border-radius:9px;object-fit:contain;flex-shrink:0}
+    .recu-logo-ph{display:flex;align-items:center;justify-content:center;background:#eff6ff;font-size:22px}
+    .recu-badge{background:#1a56db;color:#fff;font-weight:800;font-size:11px;letter-spacing:1px;padding:5px 12px;border-radius:7px}
+    .recu-num{display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin:10px 0 6px}
+    .recu-grid{background:#f8fafc;border-radius:10px;padding:9px 13px;margin-bottom:11px}
+    .recu-montant{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1.5px solid #10b981;border-radius:11px;padding:12px 16px}
+    .recu-montant span{font-size:11px;color:#047857;text-transform:uppercase;font-weight:700;letter-spacing:.3px}
+    .recu-montant b{font-size:20px;color:#047857;font-weight:900}
+    .recu-solde{margin-top:9px;background:#fff7ed;border-radius:9px;padding:7px 13px}
+    .recu-foot{margin-top:16px;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8}
+    .page-break{page-break-after:always} @media print{.noprint{display:none} body{padding:0}}
   </style></head><body>${html}</body></html>`);
   w.document.close(); w.print();
 };
 
 // ── UI ATOMS ──────────────────────────────────────────────────────────────────
-const iSt = (x={}) => ({width:"100%",padding:"10px 13px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:13,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",boxSizing:"border-box",background:"#fff",color:"#1e293b",...x});
-const Lbl = ({t,children,mb=14}) => <div style={{marginBottom:mb}}>{t&&<label style={{display:"block",fontSize:11,fontWeight:700,color:"#64748b",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>{t}</label>}{children}</div>;
+const iSt = (x) => ({width:"100%",padding:"10px 13px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:13,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",boxSizing:"border-box",background:"#fff",color:"#1e293b",...(x||{})});
+const Lbl = (props) => { const t=props.t, children=props.children, mb=props.mb==null?14:props.mb; return <div style={{marginBottom:mb}}>{t&&<label style={{display:"block",fontSize:11,fontWeight:700,color:"#64748b",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>{t}</label>}{children}</div>; };
 const Inp = ({label,...p}) => <Lbl t={label}><input style={iSt()} {...p}/></Lbl>;
 const Slt = ({label,opts,...p}) => <Lbl t={label}><select style={iSt()} {...p}>{opts.map(o=><option key={o.v??o} value={o.v??o}>{o.l??o}</option>)}</select></Lbl>;
 const Btn = ({ch,v="primary",onClick,disabled,full,s={}}) => {
@@ -125,7 +259,7 @@ const Tbl = ({cols,rows,empty}) => (
     )}
   </div>
 );
-const TR = ({children,onClick}) => <tr onClick={onClick} style={{borderTop:"1px solid #f8fafc",cursor:onClick?"pointer":"default"}} onMouseOver={e=>e.currentTarget.style.background="#f8fafc"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>{children}</tr>;
+const TR = ({children,onClick}) => <tr onClick={onClick} style={{borderTop:"1px solid #f8fafc",cursor:onClick?"pointer":"default"}} onMouseOver={e=>{e.currentTarget.style.background="#f8fafc";}} onMouseOut={e=>{e.currentTarget.style.background="transparent";}}>{children}</tr>;
 const TD = ({children,mono,bold,s={}}) => <td style={{padding:"11px 15px",fontSize:13,color:bold?"#0f172a":"#475569",fontWeight:bold?700:400,fontFamily:mono?"monospace":"inherit",...s}}>{children}</td>;
 
 // ── TOAST NOTIFICATION ────────────────────────────────────────────────────────
@@ -237,7 +371,7 @@ function Onboarding({codeActivation,onDone}) {
         {err&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,margin:"10px 0"}}>{err}</div>}
         <div style={{display:"flex",justifyContent:"space-between",marginTop:10}}>
           {step===2?<Btn ch="← Retour" v="ghost" onClick={()=>setStep(1)}/>:<div/>}
-          {step===1?<Btn ch="Suivant →" v="primary" onClick={()=>{if(!ecole.nom||!ecole.annee)return setErr("Nom et année obligatoires.");setErr("");setStep(2);}} s={{padding:"11px 26px"}}/>
+          {step===1?<Btn ch="Suivant →" v="primary" onClick={()=>{if(!ecole.nom||!ecole.annee){setErr("Nom et année obligatoires.");return;}setErr("");setStep(2);}} s={{padding:"11px 26px"}}/>
           :<Btn ch={loading?"Création...":"Terminer ✓"} v="primary" onClick={finish} disabled={loading} s={{padding:"11px 26px"}}/>}
         </div>
       </div>
@@ -317,15 +451,16 @@ function useSupabaseData(etablissementId) {
 
   // CRUD operations
   const ops = {
-    addClass: async(form)=>{const{error}=await sb.from("classes").insert({...form,etablissement_id:etablissementId});if(!error){load();showToast("Classe créée");}else showToast(error.message,"error");},
-    updateClass: async(id,form)=>{const{error}=await sb.from("classes").update(form).eq("id",id);if(!error){load();showToast("Classe modifiée");}else showToast(error.message,"error");},
+    updateEtab: async(id,form)=>{const{data:d,error}=await sb.from("etablissements").update(form).eq("id",id).select().single();if(!error){showToast("Établissement mis à jour");return d;}else{showToast(error.message,"error");return null;}},
+    addClass: async(form)=>{const f={...form,effectif:form.effectif===""?null:form.effectif};const{error}=await sb.from("classes").insert({...f,etablissement_id:etablissementId});if(!error){load();showToast("Classe créée");}else showToast(error.message,"error");},
+    updateClass: async(id,form)=>{const f={...form,effectif:form.effectif===""?null:form.effectif};const{error}=await sb.from("classes").update(f).eq("id",id);if(!error){load();showToast("Classe modifiée");}else showToast(error.message,"error");},
     deleteClass: async(id)=>{await sb.from("classes").delete().eq("id",id);load();showToast("Classe supprimée");},
 
     addMat: async(form)=>{const{error}=await sb.from("matieres").insert({...form,etablissement_id:etablissementId});if(!error){load();showToast("Matière créée");}else showToast(error.message,"error");},
     updateMat: async(id,form)=>{const{error}=await sb.from("matieres").update(form).eq("id",id);if(!error){load();showToast("Matière modifiée");}else showToast(error.message,"error");},
     deleteMat: async(id)=>{await sb.from("matieres").delete().eq("id",id);load();showToast("Matière supprimée");},
 
-    addEleve: async(form)=>{const count=data.eleves.length;const mat=`${form.prefixe||"EL"}-${String(count+1).padStart(4,"0")}`;const{error}=await sb.from("eleves").insert({...form,matricule:mat,etablissement_id:etablissementId,inscription_date:TODAY,notes:{}});if(!error){load();showToast("Élève inscrit");}else showToast(error.message,"error");},
+    addEleve: async(form)=>{const count=data.eleves.length;const {prefixe,...rest}=form;const mat=`${prefixe||"EL"}-${String(count+1).padStart(4,"0")}`;const{data:created,error}=await sb.from("eleves").insert({...rest,matricule:mat,etablissement_id:etablissementId,inscription_date:TODAY,notes:{}}).select().single();if(!error){load();showToast("Élève inscrit");return created;}else{showToast(error.message,"error");return null;}},
     updateEleve: async(id,form)=>{const{error}=await sb.from("eleves").update(form).eq("id",id);if(!error){load();showToast("Élève modifié");}else showToast(error.message,"error");},
     deleteEleve: async(id)=>{await sb.from("eleves").delete().eq("id",id);load();showToast("Élève supprimé");},
 
@@ -342,7 +477,7 @@ function useSupabaseData(etablissementId) {
       load();showToast("Notes enregistrées");
     },
 
-    addPaiement: async(form)=>{const{error}=await sb.from("paiements").insert({...form,etablissement_id:etablissementId,recu:`REC-${String(data.paiements.length+1).padStart(4,"0")}`,created_at:new Date().toISOString()});if(!error){load();showToast("Paiement enregistré");}else showToast(error.message,"error");},
+    addPaiement: async(form)=>{const{data:created,error}=await sb.from("paiements").insert({...form,etablissement_id:etablissementId,recu:`REC-${String(data.paiements.length+1).padStart(4,"0")}`,created_at:new Date().toISOString()}).select().single();if(!error){load();showToast("Paiement enregistré");return created;}else{showToast(error.message,"error");return null;}},
     deletePaiement: async(id)=>{await sb.from("paiements").delete().eq("id",id);load();showToast("Paiement supprimé");},
 
     togglePresence: async(eleveId,classeId,present)=>{
@@ -389,11 +524,24 @@ function Dashboard({data,etab,setPage}) {
   const absToday=data.presences.filter(p=>p.date===TODAY&&!p.present).length;
   const repartition=[{name:"Très Bien",v:moyennes.filter(m=>m>=16).length,c:"#10b981"},{name:"Bien",v:moyennes.filter(m=>m>=14&&m<16).length,c:"#3b82f6"},{name:"Assez Bien",v:moyennes.filter(m=>m>=12&&m<14).length,c:"#8b5cf6"},{name:"Passable",v:moyennes.filter(m=>m>=10&&m<12).length,c:"#f59e0b"},{name:"Insuffisant",v:moyennes.filter(m=>m<10).length,c:"#ef4444"}].filter(d=>d.v>0);
   const matiereData=data.matieres.map(m=>({name:m.nom.split(" ")[0].slice(0,7),moy:+(data.eleves.reduce((acc,e)=>acc+(parseFloat(e.notes?.[lastP]?.[m.id])||0),0)/data.eleves.length).toFixed(1)}));
+  const countCycle=cyc=>data.eleves.filter(e=>{const c=data.classes.find(x=>x.id===e.classe_id);return (c?.niveau||"Primaire")===cyc;}).length;
+  const cycleInfo=[{cyc:"Maternelle",emoji:"🟨",c:"#eab308",bg:"#fefce8"},{cyc:"Primaire",emoji:"🟦",c:"#3b82f6",bg:"#eff6ff"},{cyc:"Collège",emoji:"🟪",c:"#8b5cf6",bg:"#f5f3ff"},{cyc:"Lycée",emoji:"🟩",c:"#10b981",bg:"#ecfdf5"}];
   return(
     <div>
-      <SHdr title="Tableau de bord 📊" sub={`${etab.annee} · ${etab.systeme==="semestre"?"Semestriel":"Trimestriel"} · Données en temps réel`}/>
+      <SHdr title="Tableau de bord 📊" sub={`${etab.annee||""} · ${etab.systeme==="semestre"?"Semestriel":"Trimestriel"} · Données en temps réel`}/>
+      {/* Répartition des effectifs par cycle */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:13,marginBottom:14}}>
+        {cycleInfo.map(ci=>{const n=countCycle(ci.cyc);const pct=data.eleves.length?Math.round(n/data.eleves.length*100):0;return(
+          <div key={ci.cyc} onClick={()=>setPage("eleves")} style={{background:`linear-gradient(135deg,${ci.bg},#ffffff)`,borderRadius:16,padding:"18px 20px",border:`1px solid ${ci.c}22`,cursor:"pointer",position:"relative",overflow:"hidden"}}>
+            <div style={{fontSize:12,fontWeight:800,color:ci.c,letterSpacing:.3}}>{ci.emoji} {ci.cyc.toUpperCase()}</div>
+            <div style={{fontSize:34,fontWeight:900,color:"#0f172a",lineHeight:1.1,marginTop:6}}>{n}</div>
+            <div style={{fontSize:11,color:"#94a3b8",fontWeight:600}}>élève(s) · {pct}%</div>
+            <div style={{position:"absolute",right:-10,bottom:-10,fontSize:64,opacity:0.06}}>{ci.emoji}</div>
+          </div>
+        );})}
+      </div>
       <div style={{display:"flex",gap:13,flexWrap:"wrap",marginBottom:20}}>
-        <StatCard icon="👨‍🎓" label="Élèves" value={data.eleves.length} sub={`${data.classes.length} classes`} color="#3b82f6" onClick={()=>setPage("eleves")}/>
+        <StatCard icon="👨‍🎓" label="Total élèves" value={data.eleves.length} sub={`${data.classes.length} classes`} color="#3b82f6" onClick={()=>setPage("eleves")}/>
         <StatCard icon="📈" label="Moy. générale" value={moyGlobale} sub={lastP} color="#10b981"/>
         <StatCard icon="🏆" label="Taux réussite" value={`${tauxReussite}%`} color="#f59e0b"/>
         <StatCard icon="💰" label="Paiements" value={fmtMoney(totalPaie,devise)} color="#8b5cf6" onClick={()=>setPage("paiements")}/>
@@ -414,7 +562,7 @@ function Dashboard({data,etab,setPage}) {
         <Card><div style={{fontWeight:700,fontSize:13,color:"#0f172a",marginBottom:12}}>🥇 Meilleurs élèves — {lastP}</div>
           <div style={{display:"flex",flexDirection:"column",gap:7}}>
             {data.eleves.map(e=>({...e,moy:parseFloat(calcMoy(e.notes||{},data.matieres,lastP))||0})).sort((a,b)=>b.moy-a.moy).slice(0,5).map((e,i)=>{
-              const m=MENTION(e.moy);const cl=data.classes.find(c=>c.id===e.classe_id);
+              const cl=data.classes.find(c=>c.id===e.classe_id);const m=MENTION(e.moy,baremeOf(cl?.niveau));
               return(<div key={e.id} style={{display:"flex",alignItems:"center",gap:11,padding:"9px 13px",borderRadius:10,background:i===0?"#fef9c3":"#f8fafc",border:i===0?"1px solid #fde047":"1px solid #f1f5f9"}}>
                 <span style={{fontSize:16}}>{["🥇","🥈","🥉"][i]||`${i+1}.`}</span>
                 <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{e.prenom} {e.nom}</div><div style={{fontSize:11,color:"#94a3b8"}}>{cl?.nom} · {e.matricule}</div></div>
@@ -429,41 +577,68 @@ function Dashboard({data,etab,setPage}) {
 }
 
 // ── CLASSES ───────────────────────────────────────────────────────────────────
-function Classes({data,ops}) {
+function Classes({data,ops,etab}) {
   const [modal,setModal]=useState(null);
-  const [form,setForm]=useState({nom:"",niveau:"",effectif:""});
+  const [form,setForm]=useState({nom:"",niveau:"",niveau_detail:"",serie:"",effectif:"",frais_annuel_classe:"",frais_inscription_classe:""});
   const [loading,setLoading]=useState(false);
+  const [err,setErr]=useState("");
+  const devise=etab?.devise||"GNF";
   const save=async()=>{
-    if(!form.nom)return;setLoading(true);
+    if(!form.nom){setErr("Le nom est obligatoire.");return;}
+    // Anti-doublon : même nom (insensible casse/espaces) dans le même cycle
+    const norm=s=>(s||"").trim().toLowerCase();
+    const doublon=data.classes.find(c=>c.id!==modal&&norm(c.nom)===norm(form.nom)&&(c.niveau||"")===(form.niveau||""));
+    if(doublon){setErr(`Une classe "${form.nom}" existe déjà dans ${form.niveau||"ce niveau"}.`);return;}
+    setErr("");setLoading(true);
     if(modal==="add")await ops.addClass(form);else await ops.updateClass(modal,form);
     setLoading(false);setModal(null);
   };
+  // Suggère un nom à partir du niveau + série
+  const suggereNom=(niveau_detail,serie)=>!niveau_detail?"":serie?`${niveau_detail} ${serie==="Scientifique"?"S":"L"}`:niveau_detail;
+  const openNew=()=>{setErr("");setForm({nom:"",niveau:"",niveau_detail:"",serie:"",effectif:"",frais_annuel_classe:"",frais_inscription_classe:""});setModal("add");};
   return(
     <div>
-      <SHdr title="Classes 🏫" sub={`${data.classes.length} classe(s)`} action={<Btn ch="+ Nouvelle classe" v="primary" onClick={()=>{setForm({nom:"",niveau:"",effectif:""});setModal("add");}}/>}/>
+      <SHdr title="Classes 🏫" sub={`${data.classes.length} classe(s)`} action={<Btn ch="+ Nouvelle classe" v="primary" onClick={openNew}/>}/>
       {data.classes.length===0?<Card><Empty icon="🏫" text="Créez votre première classe."/></Card>:(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:13}}>
-          {data.classes.map(c=>(
-            <Card key={c.id}>
-              <div style={{fontSize:30,marginBottom:9}}>📓</div>
-              <div style={{fontWeight:800,fontSize:15,color:"#0f172a",marginBottom:3}}>{c.nom}</div>
-              <div style={{fontSize:12,color:"#64748b",marginBottom:13}}>{c.niveau}</div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span style={{background:"#eff6ff",color:"#1a56db",borderRadius:7,padding:"3px 9px",fontSize:11,fontWeight:700}}>👤 {data.eleves.filter(e=>e.classe_id===c.id).length}</span>
-                <div style={{display:"flex",gap:5}}>
-                  <button onClick={()=>{setForm({nom:c.nom,niveau:c.niveau||"",effectif:c.effectif||""});setModal(c.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer"}}>✏️</button>
-                  <button onClick={()=>ops.deleteClass(c.id)} style={{background:"#fef2f2",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer"}}>🗑️</button>
-                </div>
+        <div style={{display:"flex",flexDirection:"column",gap:18}}>
+          {CYCLES.map(cyc=>{
+            const classesCyc=data.classes.filter(c=>(c.niveau||"Primaire")===cyc);
+            if(classesCyc.length===0)return null;
+            return(<div key={cyc}>
+              <div style={{fontSize:13,fontWeight:800,color:"#475569",marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>{cyc==="Primaire"?"🟦":cyc==="Collège"?"🟪":"🟩"} {cyc}</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(195px,1fr))",gap:13}}>
+                {classesCyc.map(c=>(
+                  <Card key={c.id}>
+                    <div style={{fontSize:26,marginBottom:8}}>📓</div>
+                    <div style={{fontWeight:800,fontSize:15,color:"#0f172a",marginBottom:3}}>{c.nom}</div>
+                    <div style={{fontSize:12,color:"#64748b",marginBottom:6}}>{c.niveau_detail||c.niveau}{c.serie?` · ${c.serie}`:""}</div>
+                    {(c.frais_annuel_classe||c.frais_inscription_classe)&&<div style={{fontSize:11,color:"#059669",fontWeight:600,marginBottom:10}}>💰 {c.frais_annuel_classe?fmtMoney(c.frais_annuel_classe,devise):"—"}/an</div>}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6}}>
+                      <span style={{background:"#eff6ff",color:"#1a56db",borderRadius:7,padding:"3px 9px",fontSize:11,fontWeight:700}}>👤 {data.eleves.filter(e=>e.classe_id===c.id).length}</span>
+                      <div style={{display:"flex",gap:5}}>
+                        <button onClick={()=>{setErr("");setForm({nom:c.nom,niveau:c.niveau||"",niveau_detail:c.niveau_detail||"",serie:c.serie||"",effectif:c.effectif||"",frais_annuel_classe:c.frais_annuel_classe??"",frais_inscription_classe:c.frais_inscription_classe??""});setModal(c.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer"}}>✏️</button>
+                        <button onClick={()=>ops.deleteClass(c.id)} style={{background:"#fef2f2",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer"}}>🗑️</button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
               </div>
-            </Card>
-          ))}
+            </div>);
+          })}
         </div>
       )}
-      {modal&&<Modal title={modal==="add"?"Nouvelle classe":"Modifier"} onClose={()=>setModal(null)}>
-        <Inp label="Nom *" value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))} placeholder="Ex: 3ème A"/>
-        <Inp label="Niveau" value={form.niveau} onChange={e=>setForm(f=>({...f,niveau:e.target.value}))} placeholder="Ex: 3ème"/>
+      {modal&&<Modal title={modal==="add"?"Nouvelle classe":"Modifier la classe"} onClose={()=>setModal(null)} w={540}>
+        <Slt label="Cycle *" value={form.niveau} onChange={e=>{const niveau=e.target.value;setForm(f=>({...f,niveau,niveau_detail:"",serie:niveau==="Lycée"?f.serie:""}));}} opts={[{v:"",l:"— Choisir le cycle —"},...CYCLES.map(c=>({v:c,l:`${c} (noté sur ${baremeOf(c)})`}))]}/>
+        {form.niveau&&<Slt label="Niveau *" value={form.niveau_detail} onChange={e=>{const nd=e.target.value;setForm(f=>({...f,niveau_detail:nd,nom:suggereNom(nd,f.serie)}));}} opts={[{v:"",l:"— Choisir le niveau —"},...(NIVEAUX_CYCLE[form.niveau]||[]).map(n=>({v:n,l:n}))]}/>}
+        {form.niveau==="Lycée"&&<Slt label="Série *" value={form.serie} onChange={e=>{const s=e.target.value;setForm(f=>({...f,serie:s,nom:suggereNom(f.niveau_detail,s)}));}} opts={[{v:"",l:"— Choisir la série —"},...SERIES.map(s=>({v:s,l:s}))]}/>}
+        <Inp label="Nom de la classe *" value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))} placeholder="Ex: 11ème S, 3ème A"/>
+        {err&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,margin:"4px 0"}}>{err}</div>}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 13px"}}>
+          <Inp label={`Frais scolarité/an (${devise})`} type="number" value={form.frais_annuel_classe} onChange={e=>setForm(f=>({...f,frais_annuel_classe:e.target.value}))} placeholder={etab?.frais_annuel_defaut?`Défaut: ${etab.frais_annuel_defaut}`:"Vide = défaut école"}/>
+          <Inp label={`Frais inscription (${devise})`} type="number" value={form.frais_inscription_classe} onChange={e=>setForm(f=>({...f,frais_inscription_classe:e.target.value}))} placeholder={etab?.fraisInscription?`Défaut: ${etab.fraisInscription}`:"Vide = défaut école"}/>
+        </div>
         <Inp label="Effectif prévu" type="number" value={form.effectif} onChange={e=>setForm(f=>({...f,effectif:e.target.value}))}/>
-        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ch="Annuler" v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":"Enregistrer"} v="success" onClick={save} disabled={loading}/></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:6}}><Btn ch="Annuler" v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":"Enregistrer"} v="success" onClick={save} disabled={loading}/></div>
       </Modal>}
     </div>
   );
@@ -472,29 +647,66 @@ function Classes({data,ops}) {
 // ── MATIÈRES ──────────────────────────────────────────────────────────────────
 function Matieres({data,ops}) {
   const [modal,setModal]=useState(null);
-  const [form,setForm]=useState({nom:"",coefficient:1,enseignant:""});
+  const [form,setForm]=useState({nom:"",coefficient:1,enseignant:"",cycles:[]});
   const [loading,setLoading]=useState(false);
-  const save=async()=>{if(!form.nom)return;setLoading(true);if(modal==="add")await ops.addMat(form);else await ops.updateMat(modal,form);setLoading(false);setModal(null);};
+  const [err,setErr]=useState("");
+  const norm=s=>(s||"").trim().toLowerCase().replace(/\s+/g," ");
+  const toggleCycle=cyc=>setForm(f=>({...f,cycles:(f.cycles||[]).includes(cyc)?f.cycles.filter(c=>c!==cyc):[...(f.cycles||[]),cyc]}));
+  const save=async()=>{
+    if(!form.nom)return;
+    // Anti-doublon : même nom (insensible casse/espaces)
+    const doublon=data.matieres.find(m=>m.id!==modal&&norm(m.nom)===norm(form.nom));
+    if(doublon){setErr(`La matière "${form.nom}" existe déjà.`);return;}
+    setErr("");setLoading(true);
+    if(modal==="add")await ops.addMat(form);else await ops.updateMat(modal,form);
+    setLoading(false);setModal(null);
+  };
+  const openNew=()=>{setErr("");setForm({nom:"",coefficient:1,enseignant:"",cycles:[]});setModal("add");};
+  // Matières d'un cycle (celles dont cycles inclut cyc, ou sans cycle = toutes)
+  const matCycle=cyc=>data.matieres.filter(m=>!m.cycles||m.cycles.length===0||m.cycles.includes(cyc));
   return(
     <div>
-      <SHdr title="Matières 📖" sub={`${data.matieres.length} matière(s)`} action={<Btn ch="+ Nouvelle matière" v="primary" onClick={()=>{setForm({nom:"",coefficient:1,enseignant:""});setModal("add");}}/>}/>
-      <Tbl cols={["Matière","Coeff.","Enseignant","Actions"]} empty={<Empty icon="📖" text="Aucune matière."/>}
-        rows={data.matieres.map(m=>(
-          <TR key={m.id}>
-            <TD bold>{m.nom}</TD>
-            <TD><span style={{background:"#eff6ff",color:"#1a56db",borderRadius:7,padding:"2px 9px",fontSize:12,fontWeight:700}}>×{m.coefficient}</span></TD>
-            <TD>{m.enseignant||"—"}</TD>
-            <TD><div style={{display:"flex",gap:6}}>
-              <button onClick={()=>{setForm({nom:m.nom,coefficient:m.coefficient,enseignant:m.enseignant||""});setModal(m.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
-              <button onClick={()=>ops.deleteMat(m.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>
-            </div></TD>
-          </TR>
-        ))}
-      />
+      <SHdr title="Matières 📖" sub={`${data.matieres.length} matière(s)`} action={<Btn ch="+ Nouvelle matière" v="primary" onClick={openNew}/>}/>
+      {data.matieres.length===0?<Card><Empty icon="📖" text="Aucune matière. Créez-en une."/></Card>:(
+        <div style={{display:"flex",flexDirection:"column",gap:18}}>
+          {CYCLES.map(cyc=>{
+            const mats=matCycle(cyc);
+            if(mats.length===0)return null;
+            return(<div key={cyc}>
+              <div style={{fontSize:13,fontWeight:800,color:"#475569",marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>{cyc==="Maternelle"?"🟨":cyc==="Primaire"?"🟦":cyc==="Collège"?"🟪":"🟩"} {cyc}</div>
+              <Card s={{padding:0,overflow:"hidden"}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr style={{background:"#f8fafc"}}>{["Matière","Coeff.","Enseignant","Cycles",""].map(h=><th key={h} style={{padding:"9px 14px",textAlign:"left",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                  <tbody>{mats.map((m,i)=>(
+                    <tr key={m.id} style={{borderTop:i>0?"1px solid #f8fafc":"none"}}>
+                      <td style={{padding:"10px 14px",fontWeight:700,fontSize:13,color:"#0f172a"}}>{m.nom}</td>
+                      <td style={{padding:"10px 14px"}}><span style={{background:"#eff6ff",color:"#1a56db",borderRadius:7,padding:"2px 9px",fontSize:12,fontWeight:700}}>×{m.coefficient}</span></td>
+                      <td style={{padding:"10px 14px",fontSize:12,color:"#64748b"}}>{m.enseignant||"—"}</td>
+                      <td style={{padding:"10px 14px",fontSize:11,color:"#94a3b8"}}>{(!m.cycles||m.cycles.length===0)?"Tous":m.cycles.join(", ")}</td>
+                      <td style={{padding:"10px 14px",textAlign:"right"}}><div style={{display:"inline-flex",gap:6}}>
+                        <button onClick={()=>{setErr("");setForm({nom:m.nom,coefficient:m.coefficient,enseignant:m.enseignant||"",cycles:m.cycles||[]});setModal(m.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
+                        <button onClick={()=>ops.deleteMat(m.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>
+                      </div></td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </Card>
+            </div>);
+          })}
+        </div>
+      )}
       {modal&&<Modal title={modal==="add"?"Nouvelle matière":"Modifier"} onClose={()=>setModal(null)}>
-        <Inp label="Nom *" value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))}/>
+        <Inp label="Nom *" value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))} placeholder="Ex: Mathématiques"/>
         <Inp label="Coefficient" type="number" value={form.coefficient} onChange={e=>setForm(f=>({...f,coefficient:e.target.value}))}/>
         <Inp label="Enseignant responsable" value={form.enseignant} onChange={e=>setForm(f=>({...f,enseignant:e.target.value}))}/>
+        <Lbl t="Cycles concernés (aucun = tous)">
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {CYCLES.map(cyc=>{const on=(form.cycles||[]).includes(cyc);return(
+              <button key={cyc} onClick={()=>toggleCycle(cyc)} style={{padding:"7px 13px",borderRadius:20,border:on?"2px solid #1a56db":"1.5px solid #e2e8f0",background:on?"#eff6ff":"#fff",color:on?"#1a56db":"#64748b",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{on?"✓ ":""}{cyc}</button>
+            );})}
+          </div>
+        </Lbl>
+        {err&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,margin:"4px 0"}}>{err}</div>}
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ch="Annuler" v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":"Enregistrer"} v="success" onClick={save} disabled={loading}/></div>
       </Modal>}
     </div>
@@ -504,36 +716,80 @@ function Matieres({data,ops}) {
 // ── ÉLÈVES ────────────────────────────────────────────────────────────────────
 function Eleves({data,ops,etab}) {
   const [modal,setModal]=useState(null);const [search,setSearch]=useState("");const [filterCl,setFilterCl]=useState("");
-  const [form,setForm]=useState({nom:"",prenom:"",classe_id:"",date_naissance:"",lieu_naissance:"",tuteur:"",telephone:""});
-  const [loading,setLoading]=useState(false);
-  const filtered=data.eleves.filter(e=>`${e.prenom} ${e.nom} ${e.matricule}`.toLowerCase().includes(search.toLowerCase())&&(!filterCl||e.classe_id===parseInt(filterCl)));
-  const save=async()=>{if(!form.nom||!form.prenom)return;setLoading(true);if(modal==="add")await ops.addEleve({...form,classe_id:parseInt(form.classe_id)||data.classes[0]?.id,prefixe:etab.prefixe});else await ops.updateEleve(modal,{...form,classe_id:parseInt(form.classe_id)});setLoading(false);setModal(null);};
+  const [form,setForm]=useState({nom:"",prenom:"",classe_id:"",date_naissance:"",lieu_naissance:"",tuteur:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});
+  const [loading,setLoading]=useState(false);const [err,setErr]=useState("");
+  const save=async()=>{
+    if(!form.nom||!form.prenom)return;
+    // Anti-doublon : même nom+prénom dans la même classe
+    const norm=s=>(s||"").trim().toLowerCase().replace(/\s+/g," ");
+    const cid=parseInt(form.classe_id)||data.classes[0]?.id;
+    const doublon=data.eleves.find(e=>e.id!==modal&&norm(e.nom)===norm(form.nom)&&norm(e.prenom)===norm(form.prenom)&&e.classe_id===cid);
+    if(doublon){setErr(`Un élève "${form.prenom} ${form.nom}" existe déjà dans cette classe.`);return;}
+    setErr("");setLoading(true);
+    const {inscPayee,...data2}=form;
+    if(modal==="add"){
+      const created=await ops.addEleve({...data2,classe_id:cid,prefixe:etab.prefixe});
+      if(created&&inscPayee){
+        const clCreated=data.classes.find(c=>c.id===created.classe_id);
+        const montantInsc=fraisInscEleve(created,etab,clCreated);
+        if(montantInsc>0)await ops.addPaiement({eleve_id:created.id,type:"Frais d'inscription",montant:montantInsc,date:TODAY,mois:"",note:"Réglé à l'inscription",eleve_nom:`${created.prenom} ${created.nom}`,matricule:created.matricule});
+      }
+    } else await ops.updateEleve(modal,{...data2,classe_id:parseInt(form.classe_id)});
+    setLoading(false);setModal(null);
+  };
+  const [cycle,setCycle]=useState("Primaire");
+  const classesCycle=data.classes.filter(c=>(c.niveau||"Primaire")===cycle);
+  const countCycle=cyc=>data.eleves.filter(e=>{const c=data.classes.find(x=>x.id===e.classe_id);return (c?.niveau||"Primaire")===cyc;}).length;
+  const matchSearch=e=>`${e.prenom} ${e.nom} ${e.matricule}`.toLowerCase().includes(search.toLowerCase());
   return(
     <div>
-      <SHdr title="Élèves 👨‍🎓" sub={`${data.eleves.length} élève(s)`} action={
+      <SHdr title="Élèves 👨‍🎓" sub={`${data.eleves.length} élève(s) au total`} action={
         <div style={{display:"flex",gap:8}}>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..." style={{padding:"8px 12px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",width:160}}/>
-          <select value={filterCl} onChange={e=>setFilterCl(e.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
-            <option value="">Toutes classes</option>
-            {data.classes.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
-          </select>
-          <Btn ch="+ Inscrire" v="primary" onClick={()=>{setForm({nom:"",prenom:"",classe_id:data.classes[0]?.id||"",date_naissance:"",lieu_naissance:"",tuteur:"",telephone:""});setModal("add");}}/>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..." style={{padding:"8px 12px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",width:170}}/>
+          <Btn ch="+ Inscrire" v="primary" onClick={()=>{setErr("");setForm({nom:"",prenom:"",classe_id:classesCycle[0]?.id||data.classes[0]?.id||"",date_naissance:"",lieu_naissance:"",tuteur:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});setModal("add");}}/>
         </div>
       }/>
-      <Tbl cols={["Élève","Matricule","Classe","Inscription","Actions"]} empty={<Empty icon="👨‍🎓" text="Aucun élève."/>}
-        rows={filtered.map(e=>{const cl=data.classes.find(c=>c.id===e.classe_id);return(
-          <TR key={e.id}>
-            <TD><div style={{display:"flex",alignItems:"center",gap:9}}>
-              <div style={{width:31,height:31,borderRadius:9,background:"#eff6ff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:"#1a56db",fontSize:11}}>{e.prenom?.[0]}{e.nom?.[0]}</div>
-              <div><div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{e.prenom} {e.nom}</div>{e.tuteur&&<div style={{fontSize:11,color:"#94a3b8"}}>👤 {e.tuteur}</div>}</div>
-            </div></TD>
-            <TD mono>{e.matricule}</TD><TD>{cl?.nom||"—"}</TD><TD>{e.inscription_date||"—"}</TD>
-            <TD><div style={{display:"flex",gap:6}}>
-              <button onClick={()=>{setForm({nom:e.nom,prenom:e.prenom,classe_id:e.classe_id,date_naissance:e.date_naissance||"",lieu_naissance:e.lieu_naissance||"",tuteur:e.tuteur||"",telephone:e.telephone||""});setModal(e.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
-              <button onClick={()=>ops.deleteEleve(e.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>
-            </div></TD>
-          </TR>);})}
-      />
+      <div style={{display:"flex",gap:8,marginBottom:18}}>
+        {CYCLES.map(cyc=>{const actif=cycle===cyc;const n=countCycle(cyc);return(
+          <button key={cyc} onClick={()=>setCycle(cyc)} style={{flex:1,padding:"13px 16px",borderRadius:13,border:actif?"2px solid #1a56db":"1.5px solid #e2e8f0",background:actif?"#eff6ff":"#fff",cursor:"pointer",textAlign:"left",transition:"all .15s",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+            <div style={{fontSize:13,fontWeight:800,color:actif?"#1a56db":"#0f172a"}}>{cyc==="Primaire"?"🟦":cyc==="Collège"?"🟪":"🟩"} {cyc}</div>
+            <div style={{fontSize:22,fontWeight:900,color:actif?"#1a56db":"#334155",marginTop:2}}>{n}<span style={{fontSize:11,color:"#94a3b8",fontWeight:600}}> élève(s)</span></div>
+          </button>
+        );})}
+      </div>
+      {classesCycle.length===0?<Card><Empty icon="🏫" text={`Aucune classe en ${cycle}. Créez une classe et choisissez le cycle "${cycle}".`}/></Card>:(
+        <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          {classesCycle.map(cl=>{
+            const elevesClasse=data.eleves.filter(e=>e.classe_id===cl.id&&matchSearch(e));
+            return(
+              <Card key={cl.id} s={{padding:0,overflow:"hidden"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 18px",background:"#f8fafc",borderBottom:"1px solid #eef2f7"}}>
+                  <div style={{fontWeight:800,fontSize:14,color:"#0f172a"}}>🏫 {cl.nom}</div>
+                  <span style={{background:"#1a56db",color:"#fff",borderRadius:20,padding:"3px 13px",fontSize:12,fontWeight:800}}>{elevesClasse.length} élève(s)</span>
+                </div>
+                {elevesClasse.length===0?<div style={{padding:"18px",textAlign:"center",color:"#94a3b8",fontSize:12}}>{search?"Aucun résultat dans cette classe.":"Aucun élève dans cette classe."}</div>:(
+                  <table style={{width:"100%",borderCollapse:"collapse"}}>
+                    <tbody>{elevesClasse.map((e,i)=>(
+                      <tr key={e.id} style={{borderTop:i>0?"1px solid #f8fafc":"none"}}>
+                        <td style={{padding:"10px 18px",width:36,color:"#cbd5e1",fontSize:12}}>{i+1}</td>
+                        <td style={{padding:"10px 6px"}}><div style={{display:"flex",alignItems:"center",gap:9}}>
+                          <div style={{width:31,height:31,borderRadius:9,background:"#eff6ff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:"#1a56db",fontSize:11}}>{e.prenom?.[0]}{e.nom?.[0]}</div>
+                          <div><div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{e.prenom} {e.nom}</div>{e.tuteur&&<div style={{fontSize:11,color:"#94a3b8"}}>👤 {e.tuteur}</div>}</div>
+                        </div></td>
+                        <td style={{padding:"10px 6px",fontFamily:"monospace",fontSize:12,color:"#64748b"}}>{e.matricule}</td>
+                        <td style={{padding:"10px 18px",textAlign:"right"}}><div style={{display:"inline-flex",gap:6}}>
+                          <button onClick={()=>{setErr("");setForm({nom:e.nom,prenom:e.prenom,classe_id:e.classe_id,date_naissance:e.date_naissance||"",lieu_naissance:e.lieu_naissance||"",tuteur:e.tuteur||"",telephone:e.telephone||"",frais_annuel:e.frais_annuel??"",frais_inscription_eleve:e.frais_inscription_eleve??"",inscPayee:false});setModal(e.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
+                          <button onClick={()=>ops.deleteEleve(e.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>
+                        </div></td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
       {modal&&<Modal title={modal==="add"?"Inscrire un élève":"Modifier"} onClose={()=>setModal(null)} w={540}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 13px"}}>
           <Inp label="Nom *" value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))}/>
@@ -543,7 +799,14 @@ function Eleves({data,ops,etab}) {
           <div style={{gridColumn:"1/-1"}}><Slt label="Classe *" value={form.classe_id} onChange={e=>setForm(f=>({...f,classe_id:e.target.value}))} opts={data.classes.map(c=>({v:c.id,l:c.nom}))}/></div>
           <Inp label="Tuteur/Parent" value={form.tuteur} onChange={e=>setForm(f=>({...f,tuteur:e.target.value}))}/>
           <Inp label="Téléphone parent" value={form.telephone} onChange={e=>setForm(f=>({...f,telephone:e.target.value}))}/>
+          <div style={{gridColumn:"1/-1"}}><Inp label={`Frais annuels scolarité (${etab.devise||"GNF"}) — vide = défaut école`} type="number" value={form.frais_annuel} onChange={e=>setForm(f=>({...f,frais_annuel:e.target.value}))} placeholder={etab.frais_annuel_defaut?`Défaut : ${etab.frais_annuel_defaut}`:"Bourse/réduction possible"}/></div>
+          <div style={{gridColumn:"1/-1"}}><Inp label={`Frais d'inscription (${etab.devise||"GNF"}) — vide = défaut école`} type="number" value={form.frais_inscription_eleve} onChange={e=>setForm(f=>({...f,frais_inscription_eleve:e.target.value}))} placeholder={etab.fraisInscription?`Défaut : ${etab.fraisInscription}`:"Frais d'inscription"}/></div>
         </div>
+        {modal==="add"&&<label style={{display:"flex",alignItems:"center",gap:9,padding:"10px 13px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:9,cursor:"pointer",marginTop:4}}>
+          <input type="checkbox" checked={form.inscPayee} onChange={e=>setForm(f=>({...f,inscPayee:e.target.checked}))} style={{width:17,height:17,cursor:"pointer"}}/>
+          <span style={{fontSize:12,fontWeight:600,color:"#166534"}}>✓ Frais d'inscription déjà réglés (créer le reçu automatiquement)</span>
+        </label>}
+        {err&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,marginTop:8}}>{err}</div>}
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:6}}><Btn ch="Annuler" v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":"Enregistrer"} v="success" onClick={save} disabled={loading}/></div>
       </Modal>}
     </div>
@@ -560,6 +823,8 @@ function Notes({data,ops,etab}) {
   const [saving,setSaving]=useState(false);
   const classeEleves=data.eleves.filter(e=>e.classe_id===parseInt(classeId));
   const matiere=data.matieres.find(m=>m.id===parseInt(matiereId));
+  const classeSel=data.classes.find(c=>c.id===parseInt(classeId));
+  const bareme=baremeOf(classeSel?.niveau);
   useEffect(()=>{const n={};classeEleves.forEach(e=>{n[e.id]=e.notes?.[periode]?.[matiereId]??""});setLocalNotes(n);},[periode,classeId,matiereId,data.eleves]);
   const saveAll=async()=>{
     setSaving(true);
@@ -568,12 +833,11 @@ function Notes({data,ops,etab}) {
   };
   const printFiche=()=>{
     const cl=data.classes.find(c=>c.id===parseInt(classeId));
-    const rows=classeEleves.map((e,i)=>{const note=localNotes[e.id];const app=note!==""&&note!=null?MENTION(note):{t:"Non noté",c:"#94a3b8",bg:"#f8fafc"};return`<tr><td>${i+1}</td><td><b>${e.prenom} ${e.nom}</b></td><td>${e.matricule}</td><td style="text-align:center;font-weight:900;font-size:16px;color:${app.c}">${note!==""&&note!=null?note:"—"}</td><td>${app.t}</td></tr>`;}).join("");
-    printHTML(`<div class="header"><h1>${etab.nom}</h1><p>${etab.adresse||""}</p></div>
-    <h2 style="text-align:center">FICHE DE NOTES — ${matiere?.nom} — ${periode} — ${etab.annee}</h2>
-    <p>Classe : <b>${cl?.nom}</b> · Coefficient : <b>${matiere?.coefficient}</b> · Enseignant : <b>${matiere?.enseignant||"—"}</b></p>
-    <table><tr><th>N°</th><th>Élève</th><th>Matricule</th><th>Note /20</th><th>Appréciation</th></tr>${rows}</table>
-    <p style="margin-top:30px">Signature : _________________________ Date : _____________</p>`,`Fiche Notes - ${matiere?.nom}`);
+    const rows=classeEleves.map((e,i)=>{const note=localNotes[e.id];const app=note!==""&&note!=null?MENTION(note,bareme):{t:"Non noté",c:"#94a3b8",bg:"#f8fafc"};return`<tr><td>${i+1}</td><td><b>${e.prenom} ${e.nom}</b></td><td>${e.matricule}</td><td style="text-align:center;font-weight:900;font-size:16px;color:${app.c}">${note!==""&&note!=null?note:"—"}</td><td>${app.t}</td></tr>`;}).join("");
+    printHTML(`${officialHeader(etab,{classe:cl?.nom,docTitle:`Fiche de notes — ${matiere?.nom}`})}
+    <p style="font-size:12px;color:#475569">Période : <b>${periode}</b> · Coefficient : <b>${matiere?.coefficient}</b> · Enseignant : <b>${matiere?.enseignant||"—"}</b></p>
+    <table><tr><th>N°</th><th>Élève</th><th>Matricule</th><th>Note /${bareme}</th><th>Appréciation</th></tr>${rows}</table>
+    <div class="sign"><span>Le/La titulaire : ____________________</span><span>Date : ____________</span></div>`,`Fiche Notes - ${matiere?.nom}`);
   };
   if(data.classes.length===0||data.matieres.length===0) return <Card><Empty icon="📝" text="Créez d'abord des classes et matières."/></Card>;
   return(
@@ -597,13 +861,13 @@ function Notes({data,ops,etab}) {
         <Card>
           <div style={{fontWeight:700,fontSize:13,color:"#0f172a",marginBottom:12}}>📋 {matiere?.nom} — {periode}</div>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr style={{background:"#f8fafc"}}>{["N°","Élève","Note /20","Appréciation"].map(h=><th key={h} style={{padding:"10px 13px",textAlign:"left",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+            <thead><tr style={{background:"#f8fafc"}}>{["N°","Élève",`Note /${bareme}`,"Appréciation"].map(h=><th key={h} style={{padding:"10px 13px",textAlign:"left",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
             <tbody>{classeEleves.map((e,i)=>{
-              const note=localNotes[e.id]??"";const m=note!==""?MENTION(note):null;
+              const note=localNotes[e.id]??"";const m=note!==""?MENTION(note,bareme):null;
               return(<tr key={e.id} style={{borderTop:"1px solid #f8fafc"}}>
                 <td style={{padding:"9px 13px",fontSize:12,color:"#94a3b8"}}>{i+1}</td>
                 <td style={{padding:"9px 13px"}}><div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{e.prenom} {e.nom}</div><div style={{fontSize:11,color:"#94a3b8"}}>{e.matricule}</div></td>
-                <td style={{padding:"7px 13px"}}><input type="number" min="0" max="20" step="0.25" value={note} onChange={ev=>setLocalNotes(n=>({...n,[e.id]:ev.target.value}))} style={{width:78,padding:"7px 10px",borderRadius:8,border:`2px solid ${note!==""&&parseFloat(note)<10?"#fca5a5":"#e2e8f0"}`,fontSize:14,fontWeight:700,textAlign:"center",outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",color:m?.c||"#0f172a"}}/></td>
+                <td style={{padding:"7px 13px"}}><input type="number" min="0" max={bareme} step="0.25" value={note} onChange={ev=>setLocalNotes(n=>({...n,[e.id]:ev.target.value}))} style={{width:78,padding:"7px 10px",borderRadius:8,border:`2px solid ${note!==""&&parseFloat(note)<bareme/2?"#fca5a5":"#e2e8f0"}`,fontSize:14,fontWeight:700,textAlign:"center",outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",color:m?.c||"#0f172a"}}/></td>
                 <td style={{padding:"9px 13px"}}>{m&&<span style={{background:m.bg,color:m.c,borderRadius:7,padding:"3px 9px",fontSize:11,fontWeight:700}}>{m.t}</span>}</td>
               </tr>);
             })}</tbody>
@@ -623,21 +887,25 @@ function Bulletins({data,etab}) {
   const filtered=data.eleves.filter(e=>!filterCl||e.classe_id===parseInt(filterCl));
 
   const bulletinHTML=(e,p)=>{
-    const moy=calcMoy(e.notes||{},data.matieres,p);const m=MENTION(moy);
+    const moy=calcMoy(e.notes||{},data.matieres,p);
     const cl=data.classes.find(c=>c.id===e.classe_id);
+    const bareme=baremeOf(cl?.niveau);const m=MENTION(moy,bareme);
     const classmates=data.eleves.filter(x=>x.classe_id===e.classe_id);
     const rang=classmates.map(x=>({id:x.id,moy:parseFloat(calcMoy(x.notes||{},data.matieres,p))||0})).sort((a,b)=>b.moy-a.moy).findIndex(x=>x.id===e.id)+1;
-    const lignes=data.matieres.map((mat,i)=>{const note=e.notes?.[p]?.[mat.id];const app=note!=null&&note!==""?MENTION(note):{t:"Non noté",c:"#94a3b8",bg:"#f8fafc"};return`<tr style="background:${i%2===0?"#f8fafc":"#fff"}"><td>${mat.nom}</td><td style="text-align:center">×${mat.coefficient}</td><td style="text-align:center;font-weight:900;font-size:16px;color:${app.c}">${note!=null&&note!==""?note:"—"}</td><td style="text-align:center">${note!=null&&note!==""?(parseFloat(note)*mat.coefficient).toFixed(2):"—"}</td><td style="text-align:center"><span style="background:${app.bg};color:${app.c};padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700">${app.t}</span></td></tr>`;}).join("");
-    return`<div class="header"><h1>${etab.nom}</h1>${etab.devise_txt?`<p><em>${etab.devise_txt}</em></p>`:""}<p>${etab.adresse||""} ${etab.telephone?"· Tél: "+etab.telephone:""}</p>${etab.codeMEN?`<p>Code MEN : ${etab.codeMEN}</p>`:""}<div style="display:inline-block;background:#1a56db;color:#fff;padding:6px 18px;border-radius:6px;font-weight:900;font-size:13px;margin-top:8px">BULLETIN — ${p.toUpperCase()} — ${etab.annee}</div></div>
-    <div class="grid"><div><div style="font-size:10px;color:#666;text-transform:uppercase">Élève</div><b>${e.prenom} ${e.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Matricule</div><b style="font-family:monospace">${e.matricule}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Classe</div><b>${cl?.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Année</div><b>${etab.annee}</b></div></div>
-    <table><tr style="background:#1a56db;color:#fff"><th>Matière</th><th>Coeff.</th><th>Note /20</th><th>Points</th><th>Appréciation</th></tr>${lignes}</table>
-    <div class="result" style="background:${m.bg};border:2px solid ${m.c}40"><div class="stat"><div class="stat-val" style="color:${m.c}">${moy}</div><div class="stat-lbl">Moyenne /20</div></div><div class="stat"><div class="stat-val" style="color:${m.c};font-size:18px">${m.t}</div><div class="stat-lbl">Mention</div></div><div class="stat"><div class="stat-val">${rang}/${classmates.length}</div><div class="stat-lbl">Rang</div></div></div>
-    <p style="text-align:center;font-size:11px;color:#999;margin-top:12px">Généré par MonEcole · ${etab.email||""}</p>`;
+    const lignes=data.matieres.map((mat,i)=>{const note=e.notes?.[p]?.[mat.id];const app=note!=null&&note!==""?MENTION(note,bareme):{t:"Non noté",c:"#94a3b8",bg:"#f8fafc"};return`<tr style="background:${i%2===0?"#f8fafc":"#fff"}"><td>${mat.nom}</td><td style="text-align:center">×${mat.coefficient}</td><td style="text-align:center;font-weight:900;font-size:16px;color:${app.c}">${note!=null&&note!==""?note:"—"}</td><td style="text-align:center">${note!=null&&note!==""?(parseFloat(note)*mat.coefficient).toFixed(2):"—"}</td><td style="text-align:center"><span style="background:${app.bg};color:${app.c};padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700">${app.t}</span></td></tr>`;}).join("");
+    return`${officialHeader(etab,{classe:cl?.nom,docTitle:`Bulletin de notes — ${p}`})}
+    ${etab.devise_txt?`<p style="text-align:center;font-style:italic;color:#64748b;margin:0 0 10px">${etab.devise_txt}</p>`:""}
+    <div class="grid" style="grid-template-columns:1fr 1fr 1fr 1fr"><div><div style="font-size:10px;color:#666;text-transform:uppercase">Élève</div><b>${e.prenom} ${e.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Matricule</div><b style="font-family:monospace">${e.matricule}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Classe</div><b>${cl?.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Année</div><b>${etab.annee||""}</b></div></div>
+    <table><tr><th>Matière</th><th>Coeff.</th><th>Note /${bareme}</th><th>Points</th><th>Appréciation</th></tr>${lignes}</table>
+    <div class="result" style="background:${m.bg};border:2px solid ${m.c}40"><div class="stat"><div class="stat-val" style="color:${m.c}">${moy}</div><div class="stat-lbl">Moyenne /${bareme}</div></div><div class="stat"><div class="stat-val" style="color:${m.c};font-size:18px">${m.t}</div><div class="stat-lbl">Mention</div></div><div class="stat"><div class="stat-val">${rang}/${classmates.length}</div><div class="stat-lbl">Rang</div></div></div>
+    <div class="sign"><span>Le/La Directeur(trice) : ____________________</span><span>Cachet & Signature</span></div>
+    <p style="text-align:center;font-size:10px;color:#cbd5e1;margin-top:16px">Généré par MonEcole · ${etab.email||""}</p>`;
   };
 
   if(selected){
-    const e=selected;const moy=calcMoy(e.notes||{},data.matieres,periode);const m=MENTION(moy);
+    const e=selected;const moy=calcMoy(e.notes||{},data.matieres,periode);
     const cl=data.classes.find(c=>c.id===e.classe_id);
+    const bareme=baremeOf(cl?.niveau);const m=MENTION(moy,bareme);
     const classmates=data.eleves.filter(x=>x.classe_id===e.classe_id);
     const rang=classmates.map(x=>({id:x.id,moy:parseFloat(calcMoy(x.notes||{},data.matieres,periode))||0})).sort((a,b)=>b.moy-a.moy).findIndex(x=>x.id===e.id)+1;
     return(
@@ -658,11 +926,11 @@ function Bulletins({data,etab}) {
             {[["Élève",`${e.prenom} ${e.nom}`],["Matricule",e.matricule],["Classe",cl?.nom],["Année",etab.annee]].map(([k,v])=>(<div key={k}><div style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",marginBottom:2}}>{k}</div><div style={{fontWeight:700,fontSize:12,color:"#0f172a"}}>{v}</div></div>))}
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",marginBottom:18}}>
-            <thead><tr style={{background:"#1a56db"}}>{["Matière","Coeff.","Note /20","Points","Appréciation"].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"#fff"}}>{h}</th>)}</tr></thead>
-            <tbody>{data.matieres.map((mat,i)=>{const note=e.notes?.[periode]?.[mat.id];const app=note!=null&&note!==""?MENTION(note):{t:"Non noté",c:"#94a3b8",bg:"#f8fafc"};return(<tr key={mat.id} style={{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e2e8f0"}}><td style={{padding:"8px 12px",fontWeight:600,fontSize:12}}>{mat.nom}</td><td style={{padding:"8px 12px",fontSize:12,color:"#64748b"}}>×{mat.coefficient}</td><td style={{padding:"8px 12px",fontWeight:800,fontSize:15,color:app.c}}>{note!=null&&note!==""?note:"—"}</td><td style={{padding:"8px 12px",fontSize:12,color:"#475569"}}>{note!=null&&note!==""?(parseFloat(note)*mat.coefficient).toFixed(2):"—"}</td><td style={{padding:"8px 12px"}}><span style={{background:app.bg,color:app.c,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700}}>{app.t}</span></td></tr>);})}</tbody>
+            <thead><tr style={{background:"#1a56db"}}>{["Matière","Coeff.",`Note /${bareme}`,"Points","Appréciation"].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"#fff"}}>{h}</th>)}</tr></thead>
+            <tbody>{data.matieres.map((mat,i)=>{const note=e.notes?.[periode]?.[mat.id];const app=note!=null&&note!==""?MENTION(note,bareme):{t:"Non noté",c:"#94a3b8",bg:"#f8fafc"};return(<tr key={mat.id} style={{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e2e8f0"}}><td style={{padding:"8px 12px",fontWeight:600,fontSize:12}}>{mat.nom}</td><td style={{padding:"8px 12px",fontSize:12,color:"#64748b"}}>×{mat.coefficient}</td><td style={{padding:"8px 12px",fontWeight:800,fontSize:15,color:app.c}}>{note!=null&&note!==""?note:"—"}</td><td style={{padding:"8px 12px",fontSize:12,color:"#475569"}}>{note!=null&&note!==""?(parseFloat(note)*mat.coefficient).toFixed(2):"—"}</td><td style={{padding:"8px 12px"}}><span style={{background:app.bg,color:app.c,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700}}>{app.t}</span></td></tr>);})}</tbody>
           </table>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,background:m.bg,borderRadius:11,padding:16,border:`2px solid ${m.c}40`}}>
-            <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Moyenne</div><div style={{fontSize:26,fontWeight:900,color:m.c}}>{moy}<span style={{fontSize:12}}>/20</span></div></div>
+            <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Moyenne</div><div style={{fontSize:26,fontWeight:900,color:m.c}}>{moy}<span style={{fontSize:12}}>/{bareme}</span></div></div>
             <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Mention</div><div style={{fontSize:16,fontWeight:800,color:m.c}}>{m.t}</div></div>
             <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Rang</div><div style={{fontSize:26,fontWeight:900,color:"#0f172a"}}>{rang}<span style={{fontSize:12}}>/{classmates.length}</span></div></div>
           </div>
@@ -681,14 +949,14 @@ function Bulletins({data,etab}) {
       }/>
       {data.eleves.length===0?<Card><Empty icon="📄" text="Aucun élève."/></Card>:(
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {filtered.map(e=>{const moy=calcMoy(e.notes||{},data.matieres,periode);const m=MENTION(moy);const cl=data.classes.find(c=>c.id===e.classe_id);return(
-            <div key={e.id} onClick={()=>setSelected(e)} style={{background:"#fff",borderRadius:12,padding:"13px 17px",boxShadow:"0 1px 6px rgba(0,0,0,0.05)",border:"1.5px solid #f1f5f9",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"all 0.15s"}} onMouseOver={ev=>ev.currentTarget.style.borderColor="#1a56db"} onMouseOut={ev=>ev.currentTarget.style.borderColor="#f1f5f9"}>
+          {filtered.map(e=>{const moy=calcMoy(e.notes||{},data.matieres,periode);const cl=data.classes.find(c=>c.id===e.classe_id);const bareme=baremeOf(cl?.niveau);const m=MENTION(moy,bareme);return(
+            <div key={e.id} onClick={()=>setSelected(e)} style={{background:"#fff",borderRadius:12,padding:"13px 17px",boxShadow:"0 1px 6px rgba(0,0,0,0.05)",border:"1.5px solid #f1f5f9",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"all 0.15s"}} onMouseOver={ev=>{ev.currentTarget.style.borderColor="#1a56db";}} onMouseOut={ev=>{ev.currentTarget.style.borderColor="#f1f5f9";}}>
               <div style={{display:"flex",alignItems:"center",gap:11}}>
                 <div style={{width:36,height:36,borderRadius:10,background:"#eff6ff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:"#1a56db",fontSize:12}}>{e.prenom?.[0]}{e.nom?.[0]}</div>
                 <div><div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{e.prenom} {e.nom}</div><div style={{fontSize:11,color:"#94a3b8"}}>{cl?.nom} · {e.matricule}</div></div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:13}}>
-                <div style={{textAlign:"right"}}><div style={{fontWeight:800,fontSize:16,color:m.c}}>{moy}/20</div><span style={{background:m.bg,color:m.c,borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:700}}>{m.t}</span></div>
+                <div style={{textAlign:"right"}}><div style={{fontWeight:800,fontSize:16,color:m.c}}>{moy}/{bareme}</div><span style={{background:m.bg,color:m.c,borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:700}}>{m.t}</span></div>
                 <span style={{color:"#cbd5e1",fontSize:17}}>›</span>
               </div>
             </div>);
@@ -702,47 +970,280 @@ function Bulletins({data,etab}) {
 // ── PAIEMENTS ─────────────────────────────────────────────────────────────────
 function Paiements({data,ops,etab}) {
   const devise=etab.devise||"GNF";
-  const [modal,setModal]=useState(null);const [filterEl,setFilterEl]=useState("");
-  const [form,setForm]=useState({eleve_id:"",type:"Mensualité",montant:"",date:TODAY,mois:"",note:""});
+  const echeances=echeancesList(etab);
+  const isTranche=(etab.mode_paiement||"mensualite")==="tranche";
+  const [modal,setModal]=useState(null);
+  const [selEleve,setSelEleve]=useState("");
+  const [payCycle,setPayCycle]=useState("Primaire");
+  const [form,setForm]=useState({eleve_id:"",type:"Scolarité",montant:"",date:TODAY,mois:"",note:"",moyen:""});
   const [loading,setLoading]=useState(false);
-  const filtered=data.paiements.filter(p=>!filterEl||p.eleve_id===parseInt(filterEl));
-  const save=async()=>{if(!form.eleve_id||!form.montant)return;setLoading(true);const el=data.eleves.find(e=>e.id===parseInt(form.eleve_id));await ops.addPaiement({...form,eleve_id:parseInt(form.eleve_id),montant:parseFloat(form.montant),eleve_nom:`${el?.prenom} ${el?.nom}`,matricule:el?.matricule});setLoading(false);setModal(null);};
-  const printRecu=(p)=>{const el=data.eleves.find(e=>e.id===p.eleve_id);const cl=data.classes.find(c=>c.id===el?.classe_id);printHTML(`<div style="max-width:400px;margin:0 auto"><div class="header"><h1>${etab.nom}</h1><p>${etab.adresse||""}</p></div><h2 style="text-align:center;border:2px solid #000;padding:10px">REÇU DE PAIEMENT</h2><table><tr><td><b>N° Reçu</b></td><td><b>${p.recu}</b></td></tr><tr><td>Date</td><td>${p.date}</td></tr><tr><td>Élève</td><td>${el?.prenom} ${el?.nom}</td></tr><tr><td>Matricule</td><td>${el?.matricule}</td></tr><tr><td>Classe</td><td>${cl?.nom}</td></tr><tr><td>Type</td><td>${p.type}</td></tr>${p.mois?`<tr><td>Période</td><td>${p.mois}</td></tr>`:""}</table><div style="text-align:center;font-size:22px;font-weight:900;background:#f0fff4;padding:14px;border-radius:8px;margin-top:14px;border:2px solid #10b981">${fmtMoney(p.montant,devise)}</div><p style="text-align:center;font-size:11px;color:#999;margin-top:18px">Merci · ${etab.nom}</p><p style="margin-top:28px">Signature : _________________________</p></div>`,`Reçu ${p.recu}`);};
-  const total=filtered.reduce((s,p)=>s+(p.montant||0),0);
+  const [recuPret,setRecuPret]=useState(null);
+
+  // Paiements d'un élève pour une échéance donnée
+  const payeEcheance=(eleveId,ech)=>data.paiements.filter(p=>p.eleve_id===eleveId&&p.mois===ech).reduce((s,p)=>s+(p.montant||0),0);
+  const totalPayeEleve=(eleveId)=>data.paiements.filter(p=>p.eleve_id===eleveId&&p.type!=="Frais d'inscription"&&p.type!=="Frais d'examen").reduce((s,p)=>s+(p.montant||0),0);
+
+  const save=async()=>{
+    if(!form.eleve_id||!form.montant)return;setLoading(true);
+    const el=data.eleves.find(e=>e.id===parseInt(form.eleve_id));
+    const created=await ops.addPaiement({...form,eleve_id:parseInt(form.eleve_id),montant:parseFloat(form.montant),eleve_nom:`${el?.prenom} ${el?.nom}`,matricule:el?.matricule});
+    setLoading(false);setModal(null);
+    if(created)setRecuPret(created);
+  };
+
+  // Construit le HTML du reçu (réutilisé pour impression, PDF, aperçu)
+  const recuHTML=(p)=>{
+    const el=data.eleves.find(e=>e.id===p.eleve_id);const cl=data.classes.find(c=>c.id===el?.classe_id);
+    const annuel=fraisAnnuelEleve(el,etab,cl);const payeTot=totalPayeEleve(p.eleve_id);const resteAn=Math.max(0,annuel-payeTot);
+    const payeEch=p.mois?payeEcheance(p.eleve_id,p.mois):0;const partEch=isTranche?(annuel/echeances.length):(parseFloat(cl?.mensualite_classe)||parseFloat(etab.mensualite)||(annuel>0?annuel/echeances.length:0));
+    const resteEch=p.mois&&partEch?Math.max(0,partEch-payeEch):null;
+    const row=(k,v,hi)=>`<div style="display:flex;justify-content:space-between;padding:3px 0;${hi?"color:#c2410c;font-weight:700":"color:#334155"}"><span style="color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.3px">${k}</span><span style="font-weight:600">${v}</span></div>`;
+    return `<div class="recu">
+      <div class="recu-officiel">
+        <div class="recu-pays">${etab.pays||"République de Guinée"}</div>
+        <div class="recu-devise">${etab.devise_nationale||"Travail · Justice · Solidarité"}</div>
+        <div class="recu-minist">${etab.ministere||"Ministère de l'Éducation Nationale et de l'Alphabétisation"}</div>
+        ${(etab.ire||etab.dpe)?`<div class="recu-iredpe">${etab.ire?`IRE : ${etab.ire}`:""}${etab.ire&&etab.dpe?" · ":""}${etab.dpe?`DPE : ${etab.dpe}`:""}</div>`:""}
+      </div>
+      <div class="recu-head">
+        ${etab.logo?`<img src="${etab.logo}" class="recu-logo"/>`:`<div class="recu-logo recu-logo-ph">🎓</div>`}
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:14px;color:#0f172a;line-height:1.1">${etab.nom||""}</div>
+          <div style="font-size:9px;color:#64748b">${etab.adresse?etab.adresse+" · ":""}${etab.telephone||""}${etab.codeMEN?" · Code MEN: "+etab.codeMEN:""}</div>
+        </div>
+        <div class="recu-badge">REÇU</div>
+      </div>
+      <div class="recu-num"><span>N° <b style="font-family:monospace">${p.recu}</b></span><span>${p.date}</span></div>
+      <div class="recu-grid">
+        ${row("Élève",`${el?.prenom||""} ${el?.nom||""}`)}
+        ${row("Matricule",el?.matricule||"—")}
+        ${row("Classe",cl?.nom||"—")}
+        ${row("Type",p.type)}
+        ${p.moyen?row("Moyen",p.moyen):""}
+        ${p.mois?row(isTranche?"Tranche":"Mois",p.mois):""}
+      </div>
+      <div class="recu-montant"><span>Montant versé</span><b>${fmtMoney(p.montant,devise)}</b></div>
+      ${(resteEch!=null||annuel>0)?`<div class="recu-solde">
+        ${resteEch!=null?row(`Reste ${p.mois}`,fmtMoney(resteEch,devise),true):""}
+        ${annuel>0?row("Reste annuel",fmtMoney(resteAn,devise),true):""}
+      </div>`:""}
+      <div class="recu-foot"><span>Comptable : ____________</span><span>Cachet & Signature</span></div>
+    </div>`;
+  };
+  const printRecu=(p)=>printHTML(recuHTML(p),`Reçu ${p.recu}`,{compact:true});
+  // Texte récapitulatif pour WhatsApp / Mail
+  const recuTexte=(p)=>{
+    const el=data.eleves.find(e=>e.id===p.eleve_id);const cl=data.classes.find(c=>c.id===el?.classe_id);
+    const annuel=fraisAnnuelEleve(el,etab,cl);const resteAn=Math.max(0,annuel-totalPayeEleve(p.eleve_id));
+    return `*${etab.nom||"MonEcole"}* — Reçu ${p.recu}\n`+
+      `Élève : ${el?.prenom||""} ${el?.nom||""} (${el?.matricule||""})\n`+
+      `Classe : ${cl?.nom||"—"}\n`+
+      `Type : ${p.type}${p.mois?" — "+p.mois:""}\n`+
+      (p.moyen?`Moyen : ${p.moyen}\n`:"")+
+      `Montant versé : ${fmtMoney(p.montant,devise)}\n`+
+      (annuel>0?`Reste annuel : ${fmtMoney(resteAn,devise)}\n`:"")+
+      `Date : ${p.date}\nMerci.`;
+  };
+  // Télécharger le reçu en PDF (via la fenêtre d'impression -> Enregistrer en PDF)
+  const pdfRecu=(p)=>printHTML(recuHTML(p),`Recu_${p.recu}`,{compact:true});
+  const waRecu=(p)=>{
+    const el=data.eleves.find(e=>e.id===p.eleve_id);
+    const tel=(el?.telephone||"").replace(/[^0-9]/g,"");
+    const txt=encodeURIComponent(recuTexte(p));
+    window.open(tel?`https://wa.me/${tel}?text=${txt}`:`https://wa.me/?text=${txt}`,"_blank");
+  };
+  const mailRecu=(p)=>{
+    const el=data.eleves.find(e=>e.id===p.eleve_id);
+    const sujet=encodeURIComponent(`Reçu ${p.recu} — ${etab.nom||"MonEcole"}`);
+    const corps=encodeURIComponent(recuTexte(p).replace(/\*/g,""));
+    window.open(`mailto:${el?.email||""}?subject=${sujet}&body=${corps}`,"_blank");
+  };
+
+  const totalEncaisse=data.paiements.reduce((s,p)=>s+(p.montant||0),0);
+
+  // Vue détail d'un élève
+  if(selEleve){
+    const el=data.eleves.find(e=>e.id===parseInt(selEleve));
+    const cl=data.classes.find(c=>c.id===el?.classe_id);
+    const annuel=fraisAnnuelEleve(el,etab,cl);
+    const mensuelCl=parseFloat(cl?.mensualite_classe)||0;
+    const partEch=isTranche?(annuel>0?annuel/echeances.length:0):(mensuelCl||(annuel>0?annuel/echeances.length:0));
+    const payeScol=totalPayeEleve(el.id);
+    const insc=fraisInscEleve(el,etab,cl);
+    const payeInsc=data.paiements.filter(p=>p.eleve_id===el.id&&p.type==="Frais d'inscription").reduce((s,p)=>s+(p.montant||0),0);
+    const resteInsc=Math.max(0,insc-payeInsc);
+    const totalDu=annuel+insc;const totalPaye=payeScol+payeInsc;const resteTotal=Math.max(0,totalDu-totalPaye);
+    const histo=data.paiements.filter(p=>p.eleve_id===el.id).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+    return(
+      <div>
+        <div style={{display:"flex",gap:9,marginBottom:16,alignItems:"center"}}>
+          <Btn ch="← Retour" v="ghost" onClick={()=>setSelEleve("")}/>
+          <div style={{flex:1}}><div style={{fontWeight:800,fontSize:16,color:"#0f172a"}}>{el.prenom} {el.nom}</div><div style={{fontSize:12,color:"#94a3b8"}}>{cl?.nom} · {el.matricule}</div></div>
+          <Btn ch="+ Encaisser" v="primary" onClick={()=>{setForm({eleve_id:el.id,type:"Scolarité",montant:"",date:TODAY,mois:echeances[0]||"",note:""});setModal("add");}}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
+          <Card s={{padding:16}}><div style={{fontSize:10,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Total dû (insc. + scol.)</div><div style={{fontSize:20,fontWeight:900,color:"#0f172a"}}>{fmtMoney(totalDu,devise)}</div></Card>
+          <Card s={{padding:16}}><div style={{fontSize:10,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Payé</div><div style={{fontSize:20,fontWeight:900,color:"#059669"}}>{fmtMoney(totalPaye,devise)}</div></Card>
+          <Card s={{padding:16}}><div style={{fontSize:10,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Reste total</div><div style={{fontSize:20,fontWeight:900,color:resteTotal>0?"#c2410c":"#059669"}}>{fmtMoney(resteTotal,devise)}</div></Card>
+        </div>
+        {insc>0&&<Card s={{marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontWeight:800,fontSize:13,color:"#0f172a"}}>🎫 Frais d'inscription {resteInsc===0&&<span style={{color:"#059669",fontSize:11}}>✓ Réglé</span>}</div>
+              <div style={{fontSize:12,color:"#64748b",marginTop:3}}>Payé {fmtMoney(payeInsc,devise)} / {fmtMoney(insc,devise)}{resteInsc>0&&<span style={{color:"#c2410c"}}> · Reste {fmtMoney(resteInsc,devise)}</span>}</div>
+            </div>
+            {resteInsc>0&&<Btn ch="Payer inscription" v="ghost" s={{padding:"6px 13px",fontSize:11}} onClick={()=>{setForm({eleve_id:el.id,type:"Frais d'inscription",montant:resteInsc||"",date:TODAY,mois:"",note:""});setModal("add");}}/>}
+          </div>
+        </Card>}
+        <Card s={{marginBottom:14}}>
+          <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>📅 Suivi par {isTranche?"tranche":"mois"}</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {echeances.map(ech=>{
+              const paye=payeEcheance(el.id,ech);const reste=partEch?Math.max(0,partEch-paye):0;const pct=partEch?Math.min(100,Math.round(paye/partEch*100)):0;
+              const solde=partEch>0&&paye>=partEch;
+              return(<div key={ech} style={{border:"1px solid #f1f5f9",borderRadius:10,padding:"10px 13px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{ech} {solde&&<span style={{color:"#059669",fontSize:11}}>✓ Soldé</span>}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontSize:12,color:"#64748b"}}>{fmtMoney(paye,devise)}{partEch?` / ${fmtMoney(partEch,devise)}`:""}</span>
+                    <Btn ch="Payer" v="ghost" s={{padding:"5px 12px",fontSize:11}} onClick={()=>{setForm({eleve_id:el.id,type:"Scolarité",montant:reste||"",date:TODAY,mois:ech,note:""});setModal("add");}}/>
+                  </div>
+                </div>
+                {partEch>0&&<div style={{height:7,background:"#f1f5f9",borderRadius:5,overflow:"hidden"}}><div style={{width:`${pct}%`,height:"100%",background:solde?"#10b981":"#1a56db",transition:"width .3s"}}/></div>}
+                {partEch>0&&reste>0&&<div style={{fontSize:11,color:"#c2410c",marginTop:4}}>Reste : {fmtMoney(reste,devise)}</div>}
+              </div>);
+            })}
+          </div>
+        </Card>
+        <Card>
+          <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>🧾 Historique des versements</div>
+          {histo.length===0?<Empty icon="💰" text="Aucun versement."/>:(
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr style={{background:"#f8fafc"}}>{["Reçu","Type",isTranche?"Tranche":"Mois","Montant","Date",""].map(h=><th key={h} style={{padding:"8px 11px",textAlign:"left",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+              <tbody>{histo.map(p=>(<tr key={p.id} style={{borderTop:"1px solid #f8fafc"}}>
+                <td style={{padding:"8px 11px",fontFamily:"monospace",fontSize:12,fontWeight:700}}>{p.recu}</td>
+                <td style={{padding:"8px 11px",fontSize:12}}>{p.type}</td>
+                <td style={{padding:"8px 11px",fontSize:12,color:"#64748b"}}>{p.mois||"—"}</td>
+                <td style={{padding:"8px 11px",fontSize:13,fontWeight:700,color:"#059669"}}>{fmtMoney(p.montant,devise)}</td>
+                <td style={{padding:"8px 11px",fontSize:12,color:"#64748b"}}>{p.date}</td>
+                <td style={{padding:"8px 11px"}}><div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>printRecu(p)} style={{background:"#eff6ff",color:"#1a56db",border:"none",borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🖨️</button>
+                  <button onClick={()=>ops.deletePaiement(p.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>
+                </div></td>
+              </tr>))}</tbody>
+            </table>
+          )}
+        </Card>
+        {modal&&<PaiementModal {...{form,setForm,echeances,isTranche,devise,loading,save,setModal,moyens:etab.moyens_paiement||[]}}/>}
+        {recuPret&&<RecuApercu html={recuHTML(recuPret)} onClose={()=>setRecuPret(null)} onPrint={()=>printRecu(recuPret)} onPdf={()=>pdfRecu(recuPret)} onWa={()=>waRecu(recuPret)} onMail={()=>mailRecu(recuPret)}/>}
+      </div>
+    );
+  }
+
+  // Vue liste groupée par cycle et classe
+  const ligneEleve=(el)=>{
+    const cl=data.classes.find(c=>c.id===el.classe_id);
+    const insc=fraisInscEleve(el,etab,cl);
+    const payeInsc=data.paiements.filter(p=>p.eleve_id===el.id&&p.type==="Frais d'inscription").reduce((s,p)=>s+(p.montant||0),0);
+    const annuel=fraisAnnuelEleve(el,etab,cl)+insc;const paye=totalPayeEleve(el.id)+payeInsc;const reste=Math.max(0,annuel-paye);
+    const solde=annuel>0&&paye>=annuel;const pct=annuel?Math.min(100,Math.round(paye/annuel*100)):0;
+    return(<tr key={el.id} style={{borderTop:"1px solid #f8fafc",cursor:"pointer"}} onClick={()=>setSelEleve(String(el.id))} onMouseOver={e=>{e.currentTarget.style.background="#f8fafc";}} onMouseOut={e=>{e.currentTarget.style.background="transparent";}}>
+      <td style={{padding:"10px 14px"}}><div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{el.prenom} {el.nom}</div><div style={{fontSize:11,color:"#94a3b8"}}>{el.matricule}</div></td>
+      <td style={{padding:"10px 8px",fontSize:12}}>{fmtMoney(annuel,devise)}</td>
+      <td style={{padding:"10px 8px",fontSize:12,fontWeight:700,color:"#059669"}}>{fmtMoney(paye,devise)}</td>
+      <td style={{padding:"10px 8px",fontSize:12,fontWeight:700,color:reste>0?"#c2410c":"#059669"}}>{fmtMoney(reste,devise)}</td>
+      <td style={{padding:"10px 8px"}}>{annuel>0?<div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:54,height:6,background:"#f1f5f9",borderRadius:4,overflow:"hidden"}}><div style={{width:`${pct}%`,height:"100%",background:solde?"#10b981":"#1a56db"}}/></div><span style={{fontSize:11,fontWeight:700,color:solde?"#059669":"#64748b"}}>{pct}%</span></div>:<span style={{fontSize:11,color:"#cbd5e1"}}>—</span>}</td>
+      <td style={{padding:"10px 14px",color:"#cbd5e1",fontSize:16,textAlign:"right"}}>›</td>
+    </tr>);
+  };
+  const classesCycle=data.classes.filter(c=>(c.niveau||"Primaire")===payCycle);
   return(
     <div>
-      <SHdr title="Paiements 💰" sub={`Total : ${fmtMoney(total,devise)}`} action={
-        <div style={{display:"flex",gap:8}}>
-          <select value={filterEl} onChange={e=>setFilterEl(e.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}><option value="">Tous les élèves</option>{data.eleves.map(e=><option key={e.id} value={e.id}>{e.prenom} {e.nom}</option>)}</select>
-          <Btn ch="+ Paiement" v="primary" onClick={()=>{setForm({eleve_id:data.eleves[0]?.id||"",type:"Mensualité",montant:etab.mensualite||"",date:TODAY,mois:"",note:""});setModal("add");}}/>
+      <SHdr title="Paiements 💰" sub={`Total encaissé : ${fmtMoney(totalEncaisse,devise)} · Mode : ${isTranche?"Tranches":"Mensualités"}`}/>
+      {data.eleves.length===0?<Card><Empty icon="💰" text="Inscrivez des élèves d'abord."/></Card>:(<>
+        {/* Onglets cycles */}
+        <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
+          {CYCLES.map(cyc=>{const actif=payCycle===cyc;const n=data.eleves.filter(e=>{const c=data.classes.find(x=>x.id===e.classe_id);return (c?.niveau||"Primaire")===cyc;}).length;return(
+            <button key={cyc} onClick={()=>setPayCycle(cyc)} style={{padding:"9px 16px",borderRadius:11,border:actif?"2px solid #1a56db":"1.5px solid #e2e8f0",background:actif?"#eff6ff":"#fff",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,fontWeight:800,color:actif?"#1a56db":"#64748b"}}>{cyc==="Maternelle"?"🟨":cyc==="Primaire"?"🟦":cyc==="Collège"?"🟪":"🟩"} {cyc} <span style={{fontSize:11,opacity:.7}}>({n})</span></button>
+          );})}
         </div>
-      }/>
-      <Tbl cols={["N° Reçu","Élève","Type","Montant","Date","Actions"]} empty={<Empty icon="💰" text="Aucun paiement."/>}
-        rows={filtered.map(p=>(
-          <TR key={p.id}>
-            <TD mono bold>{p.recu}</TD>
-            <TD><div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{p.eleve_nom}</div>{p.mois&&<div style={{fontSize:11,color:"#94a3b8"}}>{p.mois}</div>}</TD>
-            <TD><span style={{background:"#eff6ff",color:"#1a56db",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>{p.type}</span></TD>
-            <TD bold s={{color:"#059669"}}>{fmtMoney(p.montant,devise)}</TD>
-            <TD>{p.date}</TD>
-            <TD><div style={{display:"flex",gap:6}}>
-              <button onClick={()=>printRecu(p)} style={{background:"#eff6ff",color:"#1a56db",border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>🖨️ Reçu</button>
-              <button onClick={()=>ops.deletePaiement(p.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>
-            </div></TD>
-          </TR>
-        ))}
-      />
-      {modal&&<Modal title="Enregistrer un paiement" onClose={()=>setModal(null)}>
-        <Slt label="Élève *" value={form.eleve_id} onChange={e=>setForm(f=>({...f,eleve_id:e.target.value}))} opts={data.eleves.map(e=>({v:e.id,l:`${e.prenom} ${e.nom}`}))}/>
-        <Slt label="Type" value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} opts={["Frais d'inscription","Mensualité","Frais d'examen","Autre"]}/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 13px"}}>
-          <Inp label={`Montant (${devise}) *`} type="number" value={form.montant} onChange={e=>setForm(f=>({...f,montant:e.target.value}))}/>
-          <Inp label="Date *" type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}/>
-        </div>
-        {form.type==="Mensualité"&&<Inp label="Mois concerné" value={form.mois} onChange={e=>setForm(f=>({...f,mois:e.target.value}))} placeholder="Janvier 2026"/>}
-        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ch="Annuler" v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":"Enregistrer"} v="success" onClick={save} disabled={loading}/></div>
-      </Modal>}
+        {classesCycle.length===0?<Card><Empty icon="🏫" text={`Aucune classe en ${payCycle}.`}/></Card>:(
+          <div style={{display:"flex",flexDirection:"column",gap:16}}>
+            {classesCycle.map(cl=>{
+              const elevesClasse=data.eleves.filter(e=>e.classe_id===cl.id);
+              const fraisCl=fraisAnnuelEleve({},etab,cl);
+              // Totaux classe
+              let totDu=0,totPaye=0;
+              elevesClasse.forEach(el=>{const insc=fraisInscEleve(el,etab,cl);const pInsc=data.paiements.filter(p=>p.eleve_id===el.id&&p.type==="Frais d'inscription").reduce((s,p)=>s+(p.montant||0),0);totDu+=fraisAnnuelEleve(el,etab,cl)+insc;totPaye+=totalPayeEleve(el.id)+pInsc;});
+              const totReste=Math.max(0,totDu-totPaye);
+              return(
+                <Card key={cl.id} s={{padding:0,overflow:"hidden"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 18px",background:"#f8fafc",borderBottom:"1px solid #eef2f7",flexWrap:"wrap",gap:8}}>
+                    <div>
+                      <div style={{fontWeight:800,fontSize:14,color:"#0f172a"}}>🏫 {cl.nom} <span style={{fontWeight:600,fontSize:12,color:"#94a3b8"}}>· {elevesClasse.length} élève(s)</span></div>
+                      <div style={{fontSize:11,color:"#059669",fontWeight:600,marginTop:2}}>💰 Scolarité {fraisCl>0?fmtMoney(fraisCl,devise):"non définie"}/an{cl.frais_inscription_classe?` · Inscription ${fmtMoney(cl.frais_inscription_classe,devise)}`:""}</div>
+                    </div>
+                    <div style={{textAlign:"right",fontSize:11}}>
+                      <div style={{color:"#64748b"}}>Encaissé : <b style={{color:"#059669"}}>{fmtMoney(totPaye,devise)}</b></div>
+                      <div style={{color:"#64748b"}}>Reste : <b style={{color:totReste>0?"#c2410c":"#059669"}}>{fmtMoney(totReste,devise)}</b></div>
+                    </div>
+                  </div>
+                  {elevesClasse.length===0?<div style={{padding:18,textAlign:"center",color:"#94a3b8",fontSize:12}}>Aucun élève dans cette classe.</div>:(
+                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                      <thead><tr style={{background:"#fff"}}>{["Élève","Total dû","Payé","Reste","Statut",""].map(h=><th key={h} style={{padding:"8px 8px",textAlign:"left",fontSize:10,fontWeight:700,color:"#cbd5e1",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                      <tbody>{elevesClasse.map(ligneEleve)}</tbody>
+                    </table>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </>)}
+      {modal&&<PaiementModal {...{form,setForm,echeances,isTranche,devise,loading,save,setModal,moyens:etab.moyens_paiement||[]}}/>}
+        {recuPret&&<RecuApercu html={recuHTML(recuPret)} onClose={()=>setRecuPret(null)} onPrint={()=>printRecu(recuPret)} onPdf={()=>pdfRecu(recuPret)} onWa={()=>waRecu(recuPret)} onMail={()=>mailRecu(recuPret)}/>}
     </div>
+  );
+}
+
+// Aperçu du reçu après paiement, avec actions Imprimer / PDF / WhatsApp / Mail
+function RecuApercu({html,onClose,onPrint,onPdf,onWa,onMail}) {
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.55)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,maxWidth:520,width:"100%",maxHeight:"90vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid #f1f5f9",position:"sticky",top:0,background:"#fff"}}>
+          <div style={{fontWeight:800,fontSize:15,color:"#0f172a"}}>✅ Paiement enregistré</div>
+          <button onClick={onClose} style={{background:"#f1f5f9",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:15}}>✕</button>
+        </div>
+        <div style={{padding:18}}>
+          <div style={{transform:"scale(0.92)",transformOrigin:"top center"}} dangerouslySetInnerHTML={{__html:`<style>.recu{box-shadow:none!important;border:1px solid #e2e8f0!important}.recu-officiel{text-align:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #e2e8f0}.recu-pays{font-size:12px;font-weight:800;text-transform:uppercase}.recu-devise{font-size:9px;font-style:italic;color:#475569}.recu-minist{font-size:9px;color:#334155;margin-top:3px}.recu-iredpe{font-size:9px;color:#64748b}.recu-head{display:flex;align-items:center;gap:11px;padding-bottom:11px;border-bottom:2px solid #1a56db}.recu-logo{width:42px;height:42px;border-radius:9px;object-fit:contain}.recu-logo-ph{display:flex;align-items:center;justify-content:center;background:#eff6ff;font-size:22px}.recu-badge{background:#1a56db;color:#fff;font-weight:800;font-size:11px;letter-spacing:1px;padding:5px 12px;border-radius:7px}.recu-num{display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin:10px 0 6px}.recu-grid{background:#f8fafc;border-radius:10px;padding:9px 13px;margin-bottom:11px}.recu-montant{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1.5px solid #10b981;border-radius:11px;padding:12px 16px}.recu-montant span{font-size:11px;color:#047857;text-transform:uppercase;font-weight:700}.recu-montant b{font-size:20px;color:#047857;font-weight:900}.recu-solde{margin-top:9px;background:#fff7ed;border-radius:9px;padding:7px 13px}.recu-foot{margin-top:16px;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8}</style>`+html}}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginTop:18}}>
+            <Btn ch="🖨️ Imprimer" v="primary" onClick={onPrint}/>
+            <Btn ch="📄 Télécharger PDF" v="ghost" onClick={onPdf}/>
+            <Btn ch="🟢 WhatsApp" v="success" onClick={onWa}/>
+            <Btn ch="✉️ E-mail" v="ghost" onClick={onMail}/>
+          </div>
+          <div style={{fontSize:10,color:"#94a3b8",textAlign:"center",marginTop:10}}>Pour WhatsApp/Mail : le message s'ouvre pré-rempli. Téléchargez le PDF puis joignez-le si besoin.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Modal de saisie d'un versement (réutilisé)
+function PaiementModal({form,setForm,echeances,isTranche,devise,loading,save,setModal,moyens=[]}) {
+  return(
+    <Modal title="Encaisser un versement" onClose={()=>setModal(null)}>
+      <Slt label="Type" value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} opts={["Scolarité","Frais d'inscription","Frais d'examen","Autre"]}/>
+      {form.type==="Scolarité"&&<Slt label={isTranche?"Tranche concernée":"Mois concerné"} value={form.mois} onChange={e=>setForm(f=>({...f,mois:e.target.value}))} opts={echeances.map(x=>({v:x,l:x}))}/>}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 13px"}}>
+        <Inp label={`Montant versé (${devise}) *`} type="number" value={form.montant} onChange={e=>setForm(f=>({...f,montant:e.target.value}))}/>
+        <Inp label="Date *" type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}/>
+      </div>
+      {moyens.length>0&&<Slt label="Moyen de paiement" value={form.moyen} onChange={e=>setForm(f=>({...f,moyen:e.target.value}))} opts={[{v:"",l:"— Choisir —"},...moyens.map(m=>({v:m,l:m}))]}/>}
+      <Inp label="Note (facultatif)" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))} placeholder="Versement partiel, etc."/>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:6}}><Btn ch="Annuler" v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":"💾 Enregistrer"} v="success" onClick={save} disabled={loading}/></div>
+    </Modal>
   );
 }
 
@@ -852,6 +1353,192 @@ function Utilisateurs({data,ops,currentUser}) {
 }
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
+// ── PARAMÈTRES ÉTABLISSEMENT ──────────────────────────────────────────────────
+function Parametres({etab,data,ops,onEtabUpdate}) {
+  const [form,setForm]=useState({
+    nom:etab.nom||"",devise_txt:etab.devise_txt||"",annee:etab.annee||"",devise:etab.devise||"GNF",
+    systeme:etab.systeme||"trimestre",adresse:etab.adresse||"",telephone:etab.telephone||"",email:etab.email||"",
+    codeMEN:etab.codeMEN||"",prefixe:etab.prefixe||"",fraisInscription:etab.fraisInscription||"",mensualite:etab.mensualite||"",
+    pays:etab.pays||"République de Guinée",devise_nationale:etab.devise_nationale||"Travail · Justice · Solidarité",
+    ministere:etab.ministere||"Ministère de l'Éducation Nationale et de l'Alphabétisation",ire:etab.ire||"",dpe:etab.dpe||"",dsee:etab.dsee||"",
+    mode_paiement:etab.mode_paiement||"mensualite",nb_tranches:etab.nb_tranches||"3",mois_personnalises:etab.mois_personnalises||"",frais_annuel_defaut:etab.frais_annuel_defaut||"",
+    mode_maternelle:etab.mode_maternelle||"note",
+    entete_lignes:Array.isArray(etab.entete_lignes)?etab.entete_lignes:[],
+    moyens_paiement:Array.isArray(etab.moyens_paiement)&&etab.moyens_paiement.length?etab.moyens_paiement:["Espèces","Orange Money","MoMo","Carte Visa","Chèque"],
+    logo:etab.logo||""
+  });
+  const [loading,setLoading]=useState(false);
+  const [saved,setSaved]=useState(false);
+  // Frais par classe (édition groupée)
+  const [fraisClasses,setFraisClasses]=useState(()=>{
+    const o={};(data?.classes||[]).forEach(c=>{o[c.id]={mensuel:c.mensualite_classe??"",annuel:c.frais_annuel_classe??"",insc:c.frais_inscription_classe??""};});return o;
+  });
+  const [savingFrais,setSavingFrais]=useState(false);
+  const [fraisSaved,setFraisSaved]=useState(false);
+  const save=async()=>{
+    if(!form.nom)return;setLoading(true);
+    const updated=await ops.updateEtab(etab.id,form);
+    setLoading(false);
+    if(updated){onEtabUpdate(updated);setSaved(true);setTimeout(()=>setSaved(false),2500);}
+  };
+  const saveFrais=async()=>{
+    setSavingFrais(true);
+    for(const c of (data?.classes||[])){
+      const f=fraisClasses[c.id]||{};
+      await ops.updateClass(c.id,{nom:c.nom,niveau:c.niveau,niveau_detail:c.niveau_detail,serie:c.serie,effectif:c.effectif,mensualite_classe:f.mensuel,frais_annuel_classe:f.annuel,frais_inscription_classe:f.insc});
+    }
+    setSavingFrais(false);setFraisSaved(true);setTimeout(()=>setFraisSaved(false),2500);
+  };
+  const setFrais=(cid,k,v)=>setFraisClasses(o=>({...o,[cid]:{...o[cid],[k]:v}}));
+  // Lignes d'en-tête personnalisées
+  const addLigne=()=>setForm(f=>({...f,entete_lignes:[...(f.entete_lignes||[]),{texte:"",gras:false,pos:"center"}]}));
+  const setLigne=(i,k,v)=>setForm(f=>{const l=[...(f.entete_lignes||[])];l[i]={...l[i],[k]:v};return{...f,entete_lignes:l};});
+  const delLigne=i=>setForm(f=>({...f,entete_lignes:(f.entete_lignes||[]).filter((_,j)=>j!==i)}));
+  const addMoyen=()=>setForm(f=>({...f,moyens_paiement:[...(f.moyens_paiement||[]),"Nouveau"]}));
+  const setMoyen=(i,v)=>setForm(f=>{const m=[...(f.moyens_paiement||[])];m[i]=v;return{...f,moyens_paiement:m};});
+  const delMoyen=i=>setForm(f=>({...f,moyens_paiement:(f.moyens_paiement||[]).filter((_,j)=>j!==i)}));
+  const set=k=>e=>setForm(f=>({...f,[k]:e.target.value}));
+  return(
+    <div>
+      <SHdr title="Établissement ⚙️" sub="Infos officielles, en-tête des documents et réglages — modifiables à tout moment"/>
+      <Card s={{marginBottom:14}}>
+        <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>🖼️ Logo de l'école</div>
+        <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Apparaît sur les bulletins, reçus, fiches et dans l'application. Téléversez une image ou collez un lien.</div>
+        <div style={{display:"flex",gap:18,alignItems:"flex-start",flexWrap:"wrap"}}>
+          <div style={{width:96,height:96,borderRadius:14,border:"2px dashed #cbd5e1",background:"#f8fafc",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}>
+            {form.logo?<img src={form.logo} alt="logo" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:<span style={{fontSize:30}}>🎓</span>}
+          </div>
+          <div style={{flex:1,minWidth:240}}>
+            <label style={{display:"inline-block",padding:"9px 16px",background:"#1a56db",color:"#fff",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10}}>
+              📁 Téléverser une image
+              <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;if(f.size>500000){alert("Image trop lourde (max 500 Ko). Compressez-la ou utilisez un lien.");return;}const r=new FileReader();r.onload=()=>setForm(ff=>({...ff,logo:r.result}));r.readAsDataURL(f);}}/>
+            </label>
+            <Inp label="Ou coller un lien (URL)" value={form.logo?.startsWith("data:")?"":form.logo} onChange={set("logo")} placeholder="https://..."/>
+            {form.logo&&<button onClick={()=>setForm(f=>({...f,logo:""}))} style={{marginTop:6,background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 11px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️ Retirer le logo</button>}
+            <div style={{fontSize:10,color:"#94a3b8",marginTop:8}}>💡 PNG/JPG, max 500 Ko. Un fond transparent (PNG) rend mieux.</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16,alignItems:"center"}}>
+          {saved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>✓ Enregistré</span>}
+          <Btn ch={loading?"Enregistrement...":"💾 Enregistrer"} v="success" onClick={save} disabled={loading}/>
+        </div>
+      </Card>
+      <Card s={{marginBottom:14}}>
+        <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>🏛️ En-tête officiel des documents</div>
+        <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Ces informations apparaîtront en haut de tous les imprimés (bulletins, reçus, fiches).</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
+          <Inp label="Pays / République" value={form.pays} onChange={set("pays")} placeholder="République de Guinée"/>
+          <Inp label="Devise nationale" value={form.devise_nationale} onChange={set("devise_nationale")} placeholder="Travail · Justice · Solidarité"/>
+          <div style={{gridColumn:"1/-1"}}><Inp label="Ministère" value={form.ministere} onChange={set("ministere")} placeholder="Ministère de l'Éducation Nationale..."/></div>
+          <Inp label="IRE (Inspection Régionale)" value={form.ire} onChange={set("ire")} placeholder="IRE de ..."/>
+          <Inp label="DPE (Direction Préfectorale)" value={form.dpe} onChange={set("dpe")} placeholder="DPE de ..."/>
+          <div style={{gridColumn:"1/-1"}}><Inp label="DSEE (Direction Sous-préfectorale)" value={form.dsee} onChange={set("dsee")} placeholder="DSEE de ..."/></div>
+        </div>
+        <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid #f1f5f9"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontWeight:700,fontSize:12,color:"#334155"}}>➕ Lignes personnalisées (ajoutées sous l'en-tête)</div>
+            <Btn ch="+ Ajouter une ligne" v="ghost" s={{padding:"6px 12px",fontSize:11}} onClick={addLigne}/>
+          </div>
+          {(form.entete_lignes||[]).length===0?<div style={{fontSize:11,color:"#94a3b8"}}>Aucune ligne ajoutée. Ex : une mention, un n° d'agrément, etc.</div>:(
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {(form.entete_lignes||[]).map((lg,i)=>(
+                <div key={i} style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <input value={lg.texte} onChange={e=>setLigne(i,"texte",e.target.value)} placeholder="Texte de la ligne" style={{flex:1,padding:"8px 11px",borderRadius:8,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/>
+                  <select value={lg.pos} onChange={e=>setLigne(i,"pos",e.target.value)} style={{padding:"8px",borderRadius:8,border:"1.5px solid #e2e8f0",fontSize:11,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+                    <option value="left">Gauche</option><option value="center">Centre</option><option value="right">Droite</option>
+                  </select>
+                  <button onClick={()=>setLigne(i,"gras",!lg.gras)} style={{padding:"7px 11px",borderRadius:8,border:lg.gras?"2px solid #1a56db":"1.5px solid #e2e8f0",background:lg.gras?"#eff6ff":"#fff",color:lg.gras?"#1a56db":"#64748b",fontWeight:800,fontSize:13,cursor:"pointer"}}>G</button>
+                  <button onClick={()=>delLigne(i)} style={{padding:"7px 10px",borderRadius:8,border:"none",background:"#fef2f2",color:"#dc2626",cursor:"pointer",fontSize:12}}>🗑️</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+      <Card s={{marginBottom:14}}>
+        <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>🏫 Identité de l'école</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
+          <Inp label="Nom de l'établissement *" value={form.nom} onChange={set("nom")}/>
+          <Inp label="Devise / Slogan" value={form.devise_txt} onChange={set("devise_txt")} placeholder="L'excellence avant tout"/>
+          <Inp label="Année scolaire" value={form.annee} onChange={set("annee")} placeholder="2026-2027"/>
+          <Slt label="Système de notation" value={form.systeme} onChange={set("systeme")} opts={[{v:"trimestre",l:"Trimestriel (3 périodes)"},{v:"semestre",l:"Semestriel (2 périodes)"}]}/>
+          <Slt label="Évaluation Maternelle" value={form.mode_maternelle} onChange={set("mode_maternelle")} opts={[{v:"note",l:"Notes chiffrées (/10)"},{v:"appreciation",l:"Appréciations (Acquis...)"}]}/>
+          <Slt label="Devise monétaire" value={form.devise} onChange={set("devise")} opts={[{v:"GNF",l:"GNF — Franc Guinéen"},{v:"XOF",l:"FCFA — Franc CFA"}]}/>
+          <Inp label="Code MEN" value={form.codeMEN} onChange={set("codeMEN")} placeholder="GN 12 345 678"/>
+          <Inp label="Adresse" value={form.adresse} onChange={set("adresse")} placeholder="Commune, Ville"/>
+          <Inp label="Téléphone" value={form.telephone} onChange={set("telephone")} placeholder="+224 ..."/>
+          <Inp label="Email" value={form.email} onChange={set("email")} placeholder="direction@ecole.gn"/>
+          <Inp label="Préfixe matricule" value={form.prefixe} onChange={set("prefixe")} placeholder="CMC"/>
+          <Inp label="Frais inscription (défaut)" type="number" value={form.fraisInscription} onChange={set("fraisInscription")}/>
+          <Inp label="Mensualité (défaut)" type="number" value={form.mensualite} onChange={set("mensualite")}/>
+        </div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16,alignItems:"center"}}>
+          {saved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>✓ Enregistré</span>}
+          <Btn ch={loading?"Enregistrement...":"💾 Enregistrer"} v="success" onClick={save} disabled={loading}/>
+        </div>
+      </Card>
+      <Card s={{marginBottom:14}}>
+        <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>💰 Mode de paiement de la scolarité</div>
+        <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Définit comment la scolarité est découpée. Le suivi payé/restant s'appuie sur ce choix.</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
+          <Slt label="Mode" value={form.mode_paiement} onChange={set("mode_paiement")} opts={[{v:"mensualite",l:"Par mois (mensualités)"},{v:"tranche",l:"Par tranches"}]}/>
+          {form.mode_paiement==="tranche"
+            ? <Slt label="Nombre de tranches" value={form.nb_tranches} onChange={set("nb_tranches")} opts={[{v:"2",l:"2 tranches"},{v:"3",l:"3 tranches"},{v:"4",l:"4 tranches"}]}/>
+            : <Inp label="Mois (laisser vide = Oct→Juil)" value={form.mois_personnalises} onChange={set("mois_personnalises")} placeholder="Octobre, Novembre, ..."/>}
+        </div>
+        <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid #f1f5f9"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontWeight:700,fontSize:12,color:"#334155"}}>💳 Moyens de paiement acceptés</div>
+            <Btn ch="+ Ajouter" v="ghost" s={{padding:"6px 12px",fontSize:11}} onClick={addMoyen}/>
+          </div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {(form.moyens_paiement||[]).map((m,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:6,background:"#f8fafc",border:"1.5px solid #e2e8f0",borderRadius:9,padding:"5px 6px 5px 11px"}}>
+                <input value={m} onChange={e=>setMoyen(i,e.target.value)} style={{border:"none",background:"transparent",fontSize:12,fontWeight:600,color:"#334155",outline:"none",width:Math.max(70,(m.length||6)*8),fontFamily:"'Plus Jakarta Sans',sans-serif"}}/>
+                <button onClick={()=>delMoyen(i)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:6,padding:"3px 7px",cursor:"pointer",fontSize:11}}>✕</button>
+              </div>
+            ))}
+            {(form.moyens_paiement||[]).length===0&&<span style={{fontSize:11,color:"#94a3b8"}}>Aucun moyen. Ajoutez Espèces, Orange Money, etc.</span>}
+          </div>
+        </div>
+        <div style={{fontSize:11,color:"#94a3b8",marginTop:10}}>💡 Les montants sont définis par classe (tableau ci-dessous) et ajustables par élève. Le moyen de paiement sera choisi lors de chaque encaissement.</div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16,alignItems:"center"}}>
+          {saved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>✓ Enregistré</span>}
+          <Btn ch={loading?"Enregistrement...":"💾 Enregistrer"} v="success" onClick={save} disabled={loading}/>
+        </div>
+      </Card>
+      <Card s={{marginBottom:14}}>
+        <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:6}}>📋 Frais par classe</div>
+        <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Définissez le montant propre à chaque classe (ex : 1ère année 100 000/mois, 2ème année 135 000/mois). Laisser vide = valeur par défaut de l'école.</div>
+        {(data?.classes||[]).length===0?<div style={{fontSize:12,color:"#94a3b8"}}>Créez d'abord des classes dans l'onglet Classes.</div>:(
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:520}}>
+              <thead><tr style={{background:"#f8fafc"}}>{["Classe",`Mensuel (${form.devise})`,`Annuel (${form.devise})`,`Inscription (${form.devise})`].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+              <tbody>{CYCLES.map(cyc=>{const cls=(data.classes||[]).filter(c=>(c.niveau||"Primaire")===cyc);if(cls.length===0)return null;return(
+                <React.Fragment key={cyc}>
+                  <tr><td colSpan={4} style={{padding:"8px 10px",background:"#f1f5f9",fontSize:11,fontWeight:800,color:"#475569"}}>{cyc==="Maternelle"?"🟨":cyc==="Primaire"?"🟦":cyc==="Collège"?"🟪":"🟩"} {cyc}</td></tr>
+                  {cls.map(c=>{const f=fraisClasses[c.id]||{};return(
+                    <tr key={c.id} style={{borderTop:"1px solid #f8fafc"}}>
+                      <td style={{padding:"7px 10px",fontWeight:700,fontSize:12,color:"#0f172a"}}>{c.nom}</td>
+                      <td style={{padding:"5px 10px"}}><input type="number" value={f.mensuel} onChange={e=>setFrais(c.id,"mensuel",e.target.value)} placeholder="—" style={{width:110,padding:"7px 9px",borderRadius:7,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/></td>
+                      <td style={{padding:"5px 10px"}}><input type="number" value={f.annuel} onChange={e=>setFrais(c.id,"annuel",e.target.value)} placeholder="—" style={{width:110,padding:"7px 9px",borderRadius:7,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/></td>
+                      <td style={{padding:"5px 10px"}}><input type="number" value={f.insc} onChange={e=>setFrais(c.id,"insc",e.target.value)} placeholder="—" style={{width:110,padding:"7px 9px",borderRadius:7,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/></td>
+                    </tr>
+                  );})}
+                </React.Fragment>
+              );})}</tbody>
+            </table>
+          </div>
+        )}
+        {(data?.classes||[]).length>0&&<div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14,alignItems:"center"}}>
+          {fraisSaved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>✓ Frais enregistrés</span>}
+          <Btn ch={savingFrais?"Enregistrement...":"💾 Enregistrer les frais"} v="success" onClick={saveFrais} disabled={savingFrais}/>
+        </div>}
+      </Card>
+    </div>
+  );
+}
+
 const NAV=[
   {id:"dashboard",l:"Tableau de bord",icon:"📊"},
   {id:"classes",l:"Classes",icon:"🏫"},
@@ -863,9 +1550,21 @@ const NAV=[
   {id:"presences",l:"Présences",icon:"📅"},
   {id:"messagerie",l:"Messagerie",icon:"💬"},
   {id:"utilisateurs",l:"Utilisateurs",icon:"👤"},
+  {id:"parametres",l:"Établissement",icon:"⚙️"},
 ];
 
 // ── APP PRINCIPALE ────────────────────────────────────────────────────────────
+function CheckScreen({codeActivation,onResult}) {
+  useEffect(()=>{
+    let actif=true;
+    sb.from("etablissements").select("*").eq("code_activation",codeActivation).maybeSingle()
+      .then(({data:e})=>{if(actif)onResult(e||null);})
+      .catch(()=>{if(actif)onResult(null);});
+    return ()=>{actif=false;};
+  },[]);
+  return <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1a56db)",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"#fff",fontSize:18,fontWeight:700}}>⏳ Chargement...</div></div>;
+}
+
 function App() {
   const [screen,setScreen]=useState("activation");
   const [codeActivation,setCodeActivation]=useState("");
@@ -879,21 +1578,14 @@ function App() {
 
   if(screen==="activation") return <ActivationScreen onDone={c=>{setCodeActivation(c);setScreen("check");}}/>;
 
-  if(screen==="check") {
-    // Vérifier si l'école existe déjà
-    useEffect(()=>{
-      sb.from("etablissements").select("*").eq("code_activation",codeActivation).single()
-        .then(({data:e})=>{if(e){setEtab(e);setScreen("login");}else setScreen("onboarding");});
-    },[]);
-    return <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1a56db)",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"#fff",fontSize:18,fontWeight:700}}>⏳ Chargement...</div></div>;
-  }
+  if(screen==="check") return <CheckScreen codeActivation={codeActivation} onResult={(e)=>{if(e){setEtab(e);setScreen("login");}else setScreen("onboarding");}}/>;
 
   if(screen==="onboarding") return <Onboarding codeActivation={codeActivation} onDone={(e,a)=>{setEtab(e);setCurrentUser(a);setScreen("app");}}/>;
   if(screen==="login") return <Login onLogin={(u,e)=>{setCurrentUser(u);setEtab(e||etab);setScreen("app");}}/>;
 
   const pages={
     dashboard:<Dashboard data={data} etab={etab||{}} setPage={setPage}/>,
-    classes:<Classes data={data} ops={ops}/>,
+    classes:<Classes data={data} ops={ops} etab={etab||{}}/>,
     matieres:<Matieres data={data} ops={ops}/>,
     eleves:<Eleves data={data} ops={ops} etab={etab||{}}/>,
     notes:<Notes data={data} ops={ops} etab={etab||{}}/>,
@@ -902,6 +1594,7 @@ function App() {
     presences:<Presences data={data} ops={ops} etab={etab||{}}/>,
     messagerie:<Messagerie data={data} ops={ops} currentUser={currentUser}/>,
     utilisateurs:<Utilisateurs data={data} ops={ops} currentUser={currentUser}/>,
+    parametres:<Parametres etab={etab||{}} data={data} ops={ops} onEtabUpdate={setEtab}/>,
   };
 
   return(
@@ -910,7 +1603,7 @@ function App() {
       <div style={{width:210,background:"#0f172a",display:"flex",flexDirection:"column",flexShrink:0}}>
         <div style={{padding:"18px 13px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
           <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:11}}>
-            <div style={{width:36,height:36,borderRadius:10,background:"#1a56db",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17}}>🎓</div>
+            <div style={{width:36,height:36,borderRadius:10,background:etab?.logo?"#fff":"#1a56db",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,overflow:"hidden",border:etab?.logo?"1px solid rgba(255,255,255,0.15)":"none"}}>{etab?.logo?<img src={etab.logo} alt="logo" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:"🎓"}</div>
             <div><div style={{fontWeight:900,fontSize:15,color:"#fff",letterSpacing:-0.5}}>MonEcole</div><div style={{fontSize:9,color:"rgba(255,255,255,0.32)"}}>v4.0 · Cloud</div></div>
           </div>
           <div style={{padding:"9px 11px",background:"rgba(255,255,255,0.06)",borderRadius:9,border:"1px solid rgba(255,255,255,0.07)",marginBottom:8}}>
@@ -939,10 +1632,12 @@ function App() {
   );
 }
 
-
-const container = document.getElementById('root');
-const root = ReactDOM.createRoot(container);
-root.render(React.createElement(App));
+const _rootEl = document.getElementById("root");
+if (ReactDOM.createRoot) {
+  ReactDOM.createRoot(_rootEl).render(React.createElement(App));
+} else {
+  ReactDOM.render(React.createElement(App), _rootEl);
+}
 </script>
 </body>
 </html>
