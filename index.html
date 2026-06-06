@@ -545,17 +545,32 @@ function Dashboard({data,etab,setPage}) {
   const repartition=[{name:"Très Bien",v:moyennes.filter(m=>m>=16).length,c:"#10b981"},{name:"Bien",v:moyennes.filter(m=>m>=14&&m<16).length,c:"#3b82f6"},{name:"Assez Bien",v:moyennes.filter(m=>m>=12&&m<14).length,c:"#8b5cf6"},{name:"Passable",v:moyennes.filter(m=>m>=10&&m<12).length,c:"#f59e0b"},{name:"Insuffisant",v:moyennes.filter(m=>m<10).length,c:"#ef4444"}].filter(d=>d.v>0);
   const matiereData=data.matieres.map(m=>({name:m.nom.split(" ")[0].slice(0,7),moy:+(data.eleves.reduce((acc,e)=>acc+(parseFloat(e.notes?.[lastP]?.[m.id])||0),0)/data.eleves.length).toFixed(1)}));
   const countCycle=cyc=>data.eleves.filter(e=>{const c=data.classes.find(x=>x.id===e.classe_id);return (c?.niveau||"Primaire")===cyc;}).length;
+  const genreCycle=(cyc,g)=>data.eleves.filter(e=>{const c=data.classes.find(x=>x.id===e.classe_id);return (c?.niveau||"Primaire")===cyc&&e.genre===g;}).length;
+  const totG=data.eleves.filter(e=>e.genre==="M").length;
+  const totF=data.eleves.filter(e=>e.genre==="F").length;
   const cycleInfo=[{cyc:"Maternelle",emoji:"🟨",c:"#eab308",bg:"#fefce8"},{cyc:"Primaire",emoji:"🟦",c:"#3b82f6",bg:"#eff6ff"},{cyc:"Collège",emoji:"🟪",c:"#8b5cf6",bg:"#f5f3ff"},{cyc:"Lycée",emoji:"🟩",c:"#10b981",bg:"#ecfdf5"}];
   return(
     <div>
       <SHdr title="Tableau de bord 📊" sub={`${etab.annee||""} · ${etab.systeme==="semestre"?"Semestriel":"Trimestriel"} · Données en temps réel`}/>
+      {/* Répartition garçons / filles */}
+      {(totG+totF)>0&&<div style={{display:"flex",gap:13,marginBottom:14,flexWrap:"wrap"}}>
+        <div style={{flex:1,minWidth:150,background:"linear-gradient(135deg,#eff6ff,#fff)",borderRadius:16,padding:"16px 20px",border:"1px solid #3b82f622"}}>
+          <div style={{fontSize:12,fontWeight:800,color:"#2563eb"}}>👦 GARÇONS</div>
+          <div style={{fontSize:30,fontWeight:900,color:"#0f172a"}}>{totG}<span style={{fontSize:13,color:"#94a3b8",fontWeight:600}}> · {data.eleves.length?Math.round(totG/data.eleves.length*100):0}%</span></div>
+        </div>
+        <div style={{flex:1,minWidth:150,background:"linear-gradient(135deg,#fdf2f8,#fff)",borderRadius:16,padding:"16px 20px",border:"1px solid #db277722"}}>
+          <div style={{fontSize:12,fontWeight:800,color:"#db2777"}}>👧 FILLES</div>
+          <div style={{fontSize:30,fontWeight:900,color:"#0f172a"}}>{totF}<span style={{fontSize:13,color:"#94a3b8",fontWeight:600}}> · {data.eleves.length?Math.round(totF/data.eleves.length*100):0}%</span></div>
+        </div>
+      </div>}
       {/* Répartition des effectifs par cycle */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:13,marginBottom:14}}>
-        {cycleInfo.map(ci=>{const n=countCycle(ci.cyc);const pct=data.eleves.length?Math.round(n/data.eleves.length*100):0;return(
+        {cycleInfo.map(ci=>{const n=countCycle(ci.cyc);const pct=data.eleves.length?Math.round(n/data.eleves.length*100):0;const g=genreCycle(ci.cyc,"M");const f=genreCycle(ci.cyc,"F");return(
           <div key={ci.cyc} onClick={()=>setPage("eleves")} style={{background:`linear-gradient(135deg,${ci.bg},#ffffff)`,borderRadius:16,padding:"18px 20px",border:`1px solid ${ci.c}22`,cursor:"pointer",position:"relative",overflow:"hidden"}}>
             <div style={{fontSize:12,fontWeight:800,color:ci.c,letterSpacing:.3}}>{ci.emoji} {ci.cyc.toUpperCase()}</div>
             <div style={{fontSize:34,fontWeight:900,color:"#0f172a",lineHeight:1.1,marginTop:6}}>{n}</div>
             <div style={{fontSize:11,color:"#94a3b8",fontWeight:600}}>élève(s) · {pct}%</div>
+            {(g+f)>0&&<div style={{fontSize:11,color:"#64748b",fontWeight:600,marginTop:2}}>👦 {g} · 👧 {f}</div>}
             <div style={{position:"absolute",right:-10,bottom:-10,fontSize:64,opacity:0.06}}>{ci.emoji}</div>
           </div>
         );})}
@@ -740,7 +755,7 @@ function Professeurs({data,ops,etab}) {
   const [sel,setSel]=useState(null);
   const [err,setErr]=useState("");
   const [loading,setLoading]=useState(false);
-  const blank={nom:"",prenom:"",telephone:"",email:"",matieres_txt:"",date_embauche:"",type_salaire:"mensuel",salaire:"",taux_horaire:""};
+  const blank={nom:"",prenom:"",genre:"",telephone:"",email:"",matieres_txt:"",date_embauche:"",type_salaire:"mensuel",salaire:"",taux_horaire:""};
   const [form,setForm]=useState(blank);
   const norm=s=>(s||"").trim().toLowerCase().replace(/\s+/g," ");
   const save=async()=>{
@@ -752,7 +767,7 @@ function Professeurs({data,ops,etab}) {
     setLoading(false);setModal(null);
   };
   const openNew=()=>{setErr("");setForm(blank);setModal("add");};
-  const openEdit=p=>{setErr("");setForm({nom:p.nom,prenom:p.prenom,telephone:p.telephone||"",email:p.email||"",matieres_txt:p.matieres_txt||"",date_embauche:p.date_embauche||"",type_salaire:p.type_salaire||"mensuel",salaire:p.salaire??"",taux_horaire:p.taux_horaire??""});setModal(p.id);};
+  const openEdit=p=>{setErr("");setForm({nom:p.nom,prenom:p.prenom,genre:p.genre||"",telephone:p.telephone||"",email:p.email||"",matieres_txt:p.matieres_txt||"",date_embauche:p.date_embauche||"",type_salaire:p.type_salaire||"mensuel",salaire:p.salaire??"",taux_horaire:p.taux_horaire??""});setModal(p.id);};
 
   // Vue détail d'un professeur (salaires + absences)
   if(sel){
@@ -801,6 +816,7 @@ function Professeurs({data,ops,etab}) {
           <Inp label="Email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}/>
         </div>
         <Inp label="Matière(s) enseignée(s)" value={form.matieres_txt} onChange={e=>setForm(f=>({...f,matieres_txt:e.target.value}))} placeholder="Ex: Mathématiques, Physique"/>
+        <Slt label="Genre" value={form.genre} onChange={e=>setForm(f=>({...f,genre:e.target.value}))} opts={[{v:"",l:"— Choisir —"},{v:"M",l:"Masculin"},{v:"F",l:"Féminin"}]}/>
         <Inp label="Date d'embauche" type="date" value={form.date_embauche} onChange={e=>setForm(f=>({...f,date_embauche:e.target.value}))}/>
         <Slt label="Type de rémunération" value={form.type_salaire} onChange={e=>setForm(f=>({...f,type_salaire:e.target.value}))} opts={[{v:"mensuel",l:"Salaire mensuel fixe"},{v:"horaire",l:"Paiement à l'heure / séance"}]}/>
         {form.type_salaire==="horaire"
@@ -1156,7 +1172,7 @@ function FicheNotes({data,ops,etab,onEtabUpdate}) {
 
 function Eleves({data,ops,etab}) {
   const [modal,setModal]=useState(null);const [search,setSearch]=useState("");const [filterCl,setFilterCl]=useState("");
-  const [form,setForm]=useState({nom:"",prenom:"",classe_id:"",date_naissance:"",lieu_naissance:"",tuteur:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});
+  const [form,setForm]=useState({nom:"",prenom:"",genre:"",classe_id:"",date_naissance:"",lieu_naissance:"",tuteur:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});
   const [loading,setLoading]=useState(false);const [err,setErr]=useState("");
   const save=async()=>{
     if(!form.nom||!form.prenom)return;
@@ -1186,7 +1202,7 @@ function Eleves({data,ops,etab}) {
       <SHdr title="Élèves 👨‍🎓" sub={`${data.eleves.length} élève(s) au total`} action={
         <div style={{display:"flex",gap:8}}>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..." style={{padding:"8px 12px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",width:170}}/>
-          <Btn ch="+ Inscrire" v="primary" onClick={()=>{setErr("");setForm({nom:"",prenom:"",classe_id:classesCycle[0]?.id||data.classes[0]?.id||"",date_naissance:"",lieu_naissance:"",tuteur:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});setModal("add");}}/>
+          <Btn ch="+ Inscrire" v="primary" onClick={()=>{setErr("");setForm({nom:"",prenom:"",genre:"",classe_id:classesCycle[0]?.id||data.classes[0]?.id||"",date_naissance:"",lieu_naissance:"",tuteur:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});setModal("add");}}/>
         </div>
       }/>
       <div style={{display:"flex",gap:8,marginBottom:18}}>
@@ -1205,7 +1221,10 @@ function Eleves({data,ops,etab}) {
               <Card key={cl.id} s={{padding:0,overflow:"hidden"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 18px",background:"#f8fafc",borderBottom:"1px solid #eef2f7"}}>
                   <div style={{fontWeight:800,fontSize:14,color:"#0f172a"}}>🏫 {cl.nom}</div>
-                  <span style={{background:"#1a56db",color:"#fff",borderRadius:20,padding:"3px 13px",fontSize:12,fontWeight:800}}>{elevesClasse.length} élève(s)</span>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    {(()=>{const g=elevesClasse.filter(e=>e.genre==="M").length;const f=elevesClasse.filter(e=>e.genre==="F").length;return (g+f)>0?<span style={{fontSize:11,color:"#64748b",fontWeight:600}}>👦 {g} · 👧 {f}</span>:null;})()}
+                    <span style={{background:"#1a56db",color:"#fff",borderRadius:20,padding:"3px 13px",fontSize:12,fontWeight:800}}>{elevesClasse.length} élève(s)</span>
+                  </div>
                 </div>
                 {elevesClasse.length===0?<div style={{padding:"18px",textAlign:"center",color:"#94a3b8",fontSize:12}}>{search?"Aucun résultat dans cette classe.":"Aucun élève dans cette classe."}</div>:(
                   <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -1218,7 +1237,7 @@ function Eleves({data,ops,etab}) {
                         </div></td>
                         <td style={{padding:"10px 6px",fontFamily:"monospace",fontSize:12,color:"#64748b"}}>{e.matricule}</td>
                         <td style={{padding:"10px 18px",textAlign:"right"}}><div style={{display:"inline-flex",gap:6}}>
-                          <button onClick={()=>{setErr("");setForm({nom:e.nom,prenom:e.prenom,classe_id:e.classe_id,date_naissance:e.date_naissance||"",lieu_naissance:e.lieu_naissance||"",tuteur:e.tuteur||"",telephone:e.telephone||"",frais_annuel:e.frais_annuel??"",frais_inscription_eleve:e.frais_inscription_eleve??"",inscPayee:false});setModal(e.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
+                          <button onClick={()=>{setErr("");setForm({nom:e.nom,prenom:e.prenom,genre:e.genre||"",classe_id:e.classe_id,date_naissance:e.date_naissance||"",lieu_naissance:e.lieu_naissance||"",tuteur:e.tuteur||"",telephone:e.telephone||"",frais_annuel:e.frais_annuel??"",frais_inscription_eleve:e.frais_inscription_eleve??"",inscPayee:false});setModal(e.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
                           <button onClick={()=>ops.deleteEleve(e.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>
                         </div></td>
                       </tr>
@@ -1236,6 +1255,7 @@ function Eleves({data,ops,etab}) {
           <Inp label="Prénom *" value={form.prenom} onChange={e=>setForm(f=>({...f,prenom:e.target.value}))}/>
           <Inp label="Date naissance" type="date" value={form.date_naissance} onChange={e=>setForm(f=>({...f,date_naissance:e.target.value}))}/>
           <Inp label="Lieu naissance" value={form.lieu_naissance} onChange={e=>setForm(f=>({...f,lieu_naissance:e.target.value}))}/>
+          <Slt label="Genre" value={form.genre} onChange={e=>setForm(f=>({...f,genre:e.target.value}))} opts={[{v:"",l:"— Choisir —"},{v:"M",l:"Masculin"},{v:"F",l:"Féminin"}]}/>
           <div style={{gridColumn:"1/-1"}}><Slt label="Classe *" value={form.classe_id} onChange={e=>setForm(f=>({...f,classe_id:e.target.value}))} opts={data.classes.map(c=>({v:c.id,l:c.nom}))}/></div>
           <Inp label="Tuteur/Parent" value={form.tuteur} onChange={e=>setForm(f=>({...f,tuteur:e.target.value}))}/>
           <Inp label="Téléphone parent" value={form.telephone} onChange={e=>setForm(f=>({...f,telephone:e.target.value}))}/>
@@ -1760,11 +1780,11 @@ function Messagerie({data,ops,currentUser}) {
 
 // ── UTILISATEURS ──────────────────────────────────────────────────────────────
 function Utilisateurs({data,ops,currentUser}) {
-  const [modal,setModal]=useState(null);const [form,setForm]=useState({nom:"",prenom:"",identifiant:"",password:"",role:"Professeur"});const [loading,setLoading]=useState(false);
-  const save=async()=>{if(!form.nom||!form.identifiant)return;setLoading(true);if(modal==="add")await ops.addUser(form);else await ops.updateUser(modal,{nom:form.nom,prenom:form.prenom,identifiant:form.identifiant,role:form.role,...(form.password?{password:form.password}:{})});setLoading(false);setModal(null);};
+  const [modal,setModal]=useState(null);const [form,setForm]=useState({nom:"",prenom:"",genre:"",identifiant:"",password:"",role:"Professeur"});const [loading,setLoading]=useState(false);
+  const save=async()=>{if(!form.nom||!form.identifiant)return;setLoading(true);if(modal==="add")await ops.addUser(form);else await ops.updateUser(modal,{nom:form.nom,prenom:form.prenom,genre:form.genre,identifiant:form.identifiant,role:form.role,...(form.password?{password:form.password}:{})});setLoading(false);setModal(null);};
   return(
     <div>
-      <SHdr title="Utilisateurs 👤" sub="Gérez les accès" action={currentUser.role==="Administrateur"?<Btn ch="+ Nouvel utilisateur" v="primary" onClick={()=>{setForm({nom:"",prenom:"",identifiant:"",password:"",role:"Professeur"});setModal("add");}}/>:null}/>
+      <SHdr title="Utilisateurs 👤" sub="Gérez les accès" action={currentUser.role==="Administrateur"?<Btn ch="+ Nouvel utilisateur" v="primary" onClick={()=>{setForm({nom:"",prenom:"",genre:"",identifiant:"",password:"",role:"Professeur"});setModal("add");}}/>:null}/>
       <Tbl cols={["Utilisateur","Identifiant","Rôle","Actions"]} empty={<Empty icon="👤" text="Aucun utilisateur."/>}
         rows={data.utilisateurs.map(u=>(
           <TR key={u.id}>
@@ -1772,7 +1792,7 @@ function Utilisateurs({data,ops,currentUser}) {
             <TD mono>{u.identifiant}</TD>
             <TD><Badge role={u.role}/></TD>
             <TD>{currentUser.role==="Administrateur"&&<div style={{display:"flex",gap:6}}>
-              <button onClick={()=>{setForm({nom:u.nom,prenom:u.prenom||"",identifiant:u.identifiant,password:"",role:u.role});setModal(u.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
+              <button onClick={()=>{setForm({nom:u.nom,prenom:u.prenom||"",genre:u.genre||"",identifiant:u.identifiant,password:"",role:u.role});setModal(u.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
               {u.id!==currentUser.id&&<button onClick={()=>ops.deleteUser(u.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>}
             </div>}</TD>
           </TR>
@@ -1784,6 +1804,7 @@ function Utilisateurs({data,ops,currentUser}) {
           <Inp label="Prénom" value={form.prenom} onChange={e=>setForm(f=>({...f,prenom:e.target.value}))}/>
         </div>
         <Inp label="Identifiant *" value={form.identifiant} onChange={e=>setForm(f=>({...f,identifiant:e.target.value}))}/>
+        <Slt label="Genre" value={form.genre} onChange={e=>setForm(f=>({...f,genre:e.target.value}))} opts={[{v:"",l:"— Choisir —"},{v:"M",l:"Masculin"},{v:"F",l:"Féminin"}]}/>
         <Lbl t={modal==="add"?"Mot de passe *":"Nouveau mot de passe"}><input type="password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} style={iSt()}/></Lbl>
         <Slt label="Rôle" value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))} opts={["Administrateur","Directeur","Secrétaire","Professeur","Comptable"]}/>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ch="Annuler" v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":"Enregistrer"} v="success" onClick={save} disabled={loading}/></div>
