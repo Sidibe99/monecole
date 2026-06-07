@@ -92,6 +92,15 @@ function resetSupabaseConfig() {
 // ── CODES ACTIVATION ──────────────────────────────────────────────────────────
 const CODES = ["MONECOLE-2026","ECOLE-ALPHA","ECOLE-BETA","ECOLE-DEMO","GNF-TEST"];
 
+// ── ACCÈS CRÉATION D'ÉCOLE (réservé à l'éditeur) ──────────────────────────────
+// La création d'une nouvelle école n'est possible que via l'adresse secrète
+// se terminant par #admin-create ET avec ce mot de passe maître.
+// ⚠️ Change cette valeur pour la tienne, connue de toi seul.
+const MASTER_PASSWORD = "Sidibe-MonEcole-2026!";
+const isAdminCreateMode = () => {
+  try { return (location.hash||"").toLowerCase().includes("admin-create"); } catch(e){ return false; }
+};
+
 // ── CONSTANTES ────────────────────────────────────────────────────────────────
 const DEVISES = { GNF:{symbole:"GNF",nom:"Franc Guinéen"}, XOF:{symbole:"FCFA",nom:"Franc CFA"} };
 const ROLE_CLR = {Administrateur:"#f59e0b",Professeur:"#3b82f6","Secrétaire":"#10b981",Directeur:"#8b5cf6",Comptable:"#ec4899"};
@@ -326,7 +335,7 @@ function ActivationScreen({onDone}) {
           <button onClick={go} disabled={!code||loading} style={{width:"100%",marginTop:14,padding:13,borderRadius:11,border:"none",background:code?"#1a56db":"rgba(255,255,255,0.08)",color:"#fff",fontSize:14,fontWeight:800,cursor:code?"pointer":"not-allowed",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
             {loading?"Vérification...":"Activer →"}
           </button>
-          <p style={{color:"rgba(255,255,255,0.3)",fontSize:11,textAlign:"center",margin:"12px 0 0"}}>Démo : ECOLE-DEMO</p>
+          <p style={{color:"rgba(255,255,255,0.3)",fontSize:11,textAlign:"center",margin:"12px 0 0"}}>Espace réservé à l'éditeur MonEcole</p>
         </div>
       </div>
     </div>
@@ -2073,8 +2082,30 @@ function CheckScreen({codeActivation,onResult}) {
   return <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1a56db)",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"#fff",fontSize:18,fontWeight:700}}>⏳ Chargement...</div></div>;
 }
 
+function MasterGate({onOk}) {
+  const [pw,setPw]=useState("");const [err,setErr]=useState("");
+  const go=()=>{ if(pw===MASTER_PASSWORD){onOk();} else setErr("Mot de passe maître incorrect."); };
+  return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1a56db)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",padding:16}}>
+      <div style={{background:"#fff",borderRadius:22,padding:38,width:400,maxWidth:"100%",boxShadow:"0 32px 80px rgba(0,0,0,0.3)"}}>
+        <div style={{textAlign:"center",marginBottom:22}}>
+          <div style={{width:56,height:56,borderRadius:15,background:"#fef2f2",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,margin:"0 auto 12px"}}>🔐</div>
+          <h2 style={{margin:"0 0 3px",fontSize:19,fontWeight:900,color:"#0f172a"}}>Espace éditeur</h2>
+          <p style={{margin:0,color:"#94a3b8",fontSize:12}}>Création d'une nouvelle école — accès réservé</p>
+        </div>
+        <Lbl t="Mot de passe maître"><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} style={iSt()} placeholder="••••••••"/></Lbl>
+        {err&&<div style={{background:"#fef2f2",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,marginBottom:12}}>{err}</div>}
+        <Btn ch="Accéder →" v="primary" onClick={go} disabled={!pw} full/>
+        <div style={{textAlign:"center",marginTop:14}}><a href="#" onClick={e=>{e.preventDefault();try{location.hash="";}catch(_){};location.reload();}} style={{color:"#94a3b8",fontSize:11,textDecoration:"none"}}>← Retour à la connexion</a></div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
-  const [screen,setScreen]=useState("activation");
+  // Mode création (éditeur) seulement si l'URL contient #admin-create
+  const adminMode = isAdminCreateMode();
+  const [screen,setScreen]=useState(adminMode?"master":"login");
   const [codeActivation,setCodeActivation]=useState("");
   const [currentUser,setCurrentUser]=useState(null);
   const [etab,setEtab]=useState(null);
@@ -2084,11 +2115,13 @@ function App() {
 
   useEffect(()=>{const l=document.createElement("link");l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap";l.rel="stylesheet";document.head.appendChild(l);},[]);
 
+  // Espace éditeur (création d'école) — protégé par mot de passe maître
+  if(screen==="master") return <MasterGate onOk={()=>setScreen("activation")}/>;
   if(screen==="activation") return <ActivationScreen onDone={c=>{setCodeActivation(c);setScreen("check");}}/>;
-
   if(screen==="check") return <CheckScreen codeActivation={codeActivation} onResult={(e)=>{if(e){setEtab(e);setScreen("login");}else setScreen("onboarding");}}/>;
-
   if(screen==="onboarding") return <Onboarding codeActivation={codeActivation} onDone={(e,a)=>{setEtab(e);setCurrentUser(a);setScreen("app");}}/>;
+
+  // Écran normal pour les écoles : connexion directe
   if(screen==="login") return <Login onLogin={(u,e)=>{setCurrentUser(u);setEtab(e||etab);setScreen("app");}}/>;
 
   const pages={
