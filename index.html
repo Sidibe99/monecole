@@ -468,7 +468,7 @@ function Login({onLogin}) {
 
 // ── HOOK SUPABASE DATA ────────────────────────────────────────────────────────
 function useSupabaseData(etablissementId) {
-  const [data,setData]=useState({classes:[],matieres:[],eleves:[],utilisateurs:[],paiements:[],presences:[],messages:[],compositions:[],professeurs:[],salaires:[],absences_prof:[],emploi_temps:[]});
+  const [data,setData]=useState({classes:[],matieres:[],eleves:[],utilisateurs:[],paiements:[],presences:[],messages:[],compositions:[],professeurs:[],salaires:[],absences_prof:[],emploi_temps:[],conversations:[],titres_jour:[]});
   const [syncStatus,setSyncStatus]=useState("online");
   const [toast,setToast]=useState(null);
 
@@ -478,7 +478,7 @@ function useSupabaseData(etablissementId) {
     if(!etablissementId)return;
     setSyncStatus("syncing");
     try {
-      const [cls,mats,elvs,usrs,pays,pres,msgs,comps,profs,sals,absp,edt]=await Promise.all([
+      const [cls,mats,elvs,usrs,pays,pres,msgs,comps,profs,sals,absp,edt,convs,tj]=await Promise.all([
         sb.from("classes").select("*").eq("etablissement_id",etablissementId).order("nom"),
         sb.from("matieres").select("*").eq("etablissement_id",etablissementId).order("nom"),
         sb.from("eleves").select("*").eq("etablissement_id",etablissementId).order("nom"),
@@ -491,13 +491,15 @@ function useSupabaseData(etablissementId) {
         sb.from("salaires").select("*").eq("etablissement_id",etablissementId).order("created_at",{ascending:false}),
         sb.from("absences_prof").select("*").eq("etablissement_id",etablissementId),
         sb.from("emploi_temps").select("*").eq("etablissement_id",etablissementId),
+        sb.from("conversations").select("*").eq("etablissement_id",etablissementId).order("created_at"),
+        sb.from("titres_jour").select("*").eq("etablissement_id",etablissementId).order("created_at",{ascending:false}),
       ]);
       setData({
         classes:cls.data||[],matieres:mats.data||[],eleves:elvs.data||[],
         utilisateurs:usrs.data||[],paiements:pays.data||[],presences:pres.data||[],
         messages:msgs.data||[],compositions:comps.data||[],
         professeurs:profs.data||[],salaires:sals.data||[],absences_prof:absp.data||[],
-        emploi_temps:edt.data||[]
+        emploi_temps:edt.data||[],conversations:convs.data||[],titres_jour:tj.data||[]
       });
       setSyncStatus("online");
     } catch(e){setSyncStatus("offline");showToast("Erreur de synchronisation","error");}
@@ -564,7 +566,24 @@ function useSupabaseData(etablissementId) {
       load();
     },
 
-    sendMessage: async(auteur,role,texte)=>{const{error}=await sb.from("messages").insert({auteur,role,texte,etablissement_id:etablissementId,created_at:new Date().toISOString()});if(error)showToast(error.message,"error");else load();},
+    sendMessage: async(auteur,role,texte,conversation="general",auteur_id=null,fichiers=[])=>{const{error}=await sb.from("messages").insert({auteur,role,texte,conversation,auteur_id,fichiers,etablissement_id:etablissementId,created_at:new Date().toISOString()});if(error)showToast(error.message,"error");else load();},
+    uploadFichier: async(file)=>{
+      try{
+        const ext=(file.name.split(".").pop()||"bin").toLowerCase();
+        const path=`${etablissementId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+        const{error}=await sb.storage.from("fichiers").upload(path,file,{cacheControl:"3600",upsert:false});
+        if(error){showToast("Échec envoi fichier : "+error.message,"error");return null;}
+        const{data:pub}=sb.storage.from("fichiers").getPublicUrl(path);
+        return {url:pub.publicUrl,nom:file.name,type:file.type||""};
+      }catch(e){showToast("Erreur fichier : "+e.message,"error");return null;}
+    },
+    addGroupe: async(nom,membres)=>{const{data:created,error}=await sb.from("conversations").insert({nom,membres,etablissement_id:etablissementId,created_at:new Date().toISOString()}).select().single();if(!error){load();showToast("Groupe créé");return created;}else{showToast(error.message,"error");return null;}},
+    deleteGroupe: async(id)=>{await sb.from("conversations").delete().eq("id",id);load();showToast("Groupe supprimé");},
+    setTitreJour: async(classe_id,date,titre,auteur)=>{
+      await sb.from("titres_jour").delete().match({classe_id,date,etablissement_id:etablissementId});
+      if(titre&&titre.trim()){await sb.from("titres_jour").insert({classe_id,date,titre:titre.trim(),auteur,etablissement_id:etablissementId,created_at:new Date().toISOString()});}
+      load();showToast("Leçon du jour enregistrée");
+    },
 
     addComp: async(form)=>{const{error}=await sb.from("compositions").insert({...form,etablissement_id:etablissementId,created_at:new Date().toISOString()});if(!error){load();showToast("Composition créée");}else showToast(error.message,"error");},
     deleteComp: async(id)=>{await sb.from("compositions").delete().eq("id",id);load();showToast("Composition supprimée");},
@@ -982,13 +1001,15 @@ function ProfDetail({prof,data,ops,etab,devise,onBack}) {
   );
 }
 
-function EmploiTemps({data,ops,etab}) {
+function EmploiTemps({data,ops,etab,currentUser}) {
   const JOURS=["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
   const [classeId,setClasseId]=useState(data.classes[0]?.id||"");
   const [modal,setModal]=useState(null);
   const [loading,setLoading]=useState(false);
   const blank={jour:"Lundi",debut:"08:00",fin:"09:00",matiere_id:"",prof_id:"",salle:""};
   const [form,setForm]=useState(blank);
+  const [ctDate,setCtDate]=useState(TODAY);
+  const [ctTitre,setCtTitre]=useState("");
   const classe=data.classes.find(c=>c.id===parseInt(classeId));
   const creneaux=(data.emploi_temps||[]).filter(c=>c.classe_id===parseInt(classeId)).sort((a,b)=>(a.debut||"").localeCompare(b.debut||""));
   const matsClasse=data.matieres.filter(m=>!m.cycles||m.cycles.length===0||m.cycles.includes(classe?.niveau));
@@ -1072,6 +1093,27 @@ function EmploiTemps({data,ops,etab}) {
             );
           })}
         </div>
+        {/* Cahier de texte / Leçon du jour */}
+        <Card s={{marginTop:18}}>
+          <div style={{fontWeight:800,fontSize:14,color:"#0f172a",marginBottom:4,fontFamily:"'Sora',sans-serif"}}>📒 Cahier de texte — Leçon du jour</div>
+          <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Notez ce qui a été enseigné dans {classe?.nom} pour assurer le suivi pédagogique.</div>
+          <div style={{display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap",marginBottom:14}}>
+            <div style={{width:170}}><Inp label="Date" type="date" value={ctDate} onChange={e=>setCtDate(e.target.value)}/></div>
+            <div style={{flex:1,minWidth:220}}><Inp label="Leçon / contenu enseigné" value={ctTitre} onChange={e=>setCtTitre(e.target.value)} placeholder="Ex: Les fractions — addition et soustraction"/></div>
+            <Btn ch="Enregistrer la leçon" v="success" onClick={()=>{if(ctTitre.trim()){ops.setTitreJour(parseInt(classeId),ctDate,ctTitre,`${currentUser?.prenom||""} ${currentUser?.nom||""}`.trim());setCtTitre("");}}} disabled={!ctTitre.trim()}/>
+          </div>
+          {(()=>{const list=(data.titres_jour||[]).filter(t=>t.classe_id===parseInt(classeId));return list.length===0?<div style={{fontSize:12,color:"#94a3b8"}}>Aucune leçon enregistrée pour cette classe.</div>:(
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {list.slice(0,12).map(t=>(
+                <div key={t.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 13px",background:"#f8fafc",borderRadius:10,borderLeft:"3px solid #1a56db"}}>
+                  <div style={{fontSize:11,fontWeight:800,color:"#1a56db",minWidth:88}}>{t.date}</div>
+                  <div style={{flex:1}}><div style={{fontSize:13,color:"#0f172a",fontWeight:600}}>{t.titre}</div>{t.auteur&&<div style={{fontSize:10.5,color:"#94a3b8"}}>✍️ {t.auteur}</div>}</div>
+                  <button onClick={()=>ops.setTitreJour(parseInt(classeId),t.date,"",t.auteur)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11}}>🗑️</button>
+                </div>
+              ))}
+            </div>
+          );})()}
+        </Card>
       </>)}
       {modal&&<Modal title={modal==="add"?"Ajouter un cours":"Modifier le cours"} onClose={()=>setModal(null)}>
         <Slt label="Jour" value={form.jour} onChange={e=>setForm(f=>({...f,jour:e.target.value}))} opts={JOURS.map(j=>({v:j,l:j}))}/>
@@ -1858,28 +1900,132 @@ function Presences({data,ops,etab}) {
 
 // ── MESSAGERIE ────────────────────────────────────────────────────────────────
 function Messagerie({data,ops,currentUser}) {
-  const [msg,setMsg]=useState("");const endRef=useRef(null);
-  const send=()=>{if(!msg.trim())return;ops.sendMessage(`${currentUser.prenom} ${currentUser.nom}`,currentUser.role,msg.trim());setMsg("");};
-  useEffect(()=>endRef.current?.scrollIntoView({behavior:"smooth"}),[data.messages]);
+  const me=currentUser||{};
+  const myName=`${me.prenom||""} ${me.nom||""}`.trim();
+  const autres=(data.utilisateurs||[]).filter(u=>u.id!==me.id);
+  // Construire la liste des conversations : Général + groupes dont je suis membre + DMs existants
+  const dmKey=(a,b)=>"dm:"+[a,b].sort((x,y)=>x-y).join("-");
+  const groupes=(data.conversations||[]).filter(g=>Array.isArray(g.membres)&&(g.membres.includes(me.id)||me.role==="Administrateur"));
+  const [active,setActive]=useState("general");
+  const [msg,setMsg]=useState("");
+  const [modalGroupe,setModalGroupe]=useState(false);
+  const [grpNom,setGrpNom]=useState("");const [grpMembres,setGrpMembres]=useState([]);
+  const [newDm,setNewDm]=useState(false);
+  const [pending,setPending]=useState([]); // fichiers sélectionnés à envoyer
+  const [uploading,setUploading]=useState(false);
+  const fileRef=useRef(null);
+  const endRef=useRef(null);
+
+  // Messages de la conversation active
+  const msgs=(data.messages||[]).filter(m=>(m.conversation||"general")===active);
+  useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[data.messages,active]);
+
+  const pickFiles=async(e)=>{
+    const files=Array.from(e.target.files||[]);
+    if(files.length===0)return;
+    const trop=files.find(f=>f.size>15*1024*1024);
+    if(trop){alert("Fichier trop volumineux (max 15 Mo) : "+trop.name);return;}
+    setUploading(true);
+    const ups=[];
+    for(const f of files){const r=await ops.uploadFichier(f);if(r)ups.push(r);}
+    setPending(p=>[...p,...ups]);setUploading(false);
+    if(fileRef.current)fileRef.current.value="";
+  };
+  const send=()=>{if(!msg.trim()&&pending.length===0)return;ops.sendMessage(myName,me.role,msg.trim(),active,me.id,pending);setMsg("");setPending([]);};
+  const toggleMembre=id=>setGrpMembres(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
+  const creerGroupe=async()=>{
+    if(!grpNom.trim()||grpMembres.length===0)return;
+    const membres=[...new Set([...grpMembres,me.id])];
+    const g=await ops.addGroupe(grpNom.trim(),membres);
+    if(g){setModalGroupe(false);setGrpNom("");setGrpMembres([]);setActive("group:"+g.id);}
+  };
+
+  // Titre de la conversation active
+  const activeTitle=(()=>{
+    if(active==="general")return "💬 Général (tout le monde)";
+    if(active.startsWith("group:")){const g=groupes.find(x=>"group:"+x.id===active);return "👥 "+(g?.nom||"Groupe");}
+    if(active.startsWith("dm:")){const ids=active.slice(3).split("-").map(Number);const other=ids.find(i=>i!==me.id);const u=(data.utilisateurs||[]).find(x=>x.id===other);return "👤 "+(u?`${u.prenom} ${u.nom}`:"Privé");}
+    return "Conversation";
+  })();
+
+  const ConvBtn=({id,label,sub,active:act,onClick})=>(
+    <button onClick={onClick} className="me-nav" style={{width:"100%",textAlign:"left",padding:"10px 12px",borderRadius:10,border:"none",cursor:"pointer",background:act?"#eff6ff":"transparent",marginBottom:3,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+      <div style={{fontWeight:700,fontSize:12.5,color:act?"#1a56db":"#0f172a"}}>{label}</div>
+      {sub&&<div style={{fontSize:10.5,color:"#94a3b8",marginTop:1}}>{sub}</div>}
+    </button>
+  );
+
   return(
     <div>
-      <SHdr title="Messagerie 💬" sub="Direction ↔ Enseignants · Temps réel"/>
-      <Card s={{display:"flex",flexDirection:"column",height:480,padding:0,overflow:"hidden"}}>
-        <div style={{flex:1,overflowY:"auto",padding:18,display:"flex",flexDirection:"column",gap:11}}>
-          {data.messages.length===0?<div style={{textAlign:"center",color:"#94a3b8",padding:"40px 0"}}><div style={{fontSize:34}}>💬</div><p style={{fontSize:13}}>Aucun message.</p></div>:
-          data.messages.map(m=>{const mine=m.auteur===`${currentUser.prenom} ${currentUser.nom}`;return(
-            <div key={m.id} style={{display:"flex",flexDirection:"column",alignItems:mine?"flex-end":"flex-start"}}>
-              <div style={{fontSize:10,color:"#94a3b8",marginBottom:3}}>{m.auteur} · <Badge role={m.role}/></div>
-              <div style={{maxWidth:"68%",background:mine?"#1a56db":"#f1f5f9",color:mine?"#fff":"#0f172a",borderRadius:mine?"14px 14px 4px 14px":"14px 14px 14px 4px",padding:"9px 13px",fontSize:13,lineHeight:1.5}}>{m.texte}</div>
+      <SHdr title="Messagerie 💬" sub="Général, messages privés et groupes · Temps réel" action={<Btn ch="+ Nouveau groupe" v="primary" onClick={()=>{setGrpNom("");setGrpMembres([]);setModalGroupe(true);}}/>}/>
+      <div style={{display:"grid",gridTemplateColumns:"230px 1fr",gap:14,height:500}}>
+        {/* Liste des conversations */}
+        <Card s={{padding:10,overflowY:"auto"}}>
+          <div style={{fontSize:10,fontWeight:800,color:"#94a3b8",textTransform:"uppercase",padding:"4px 8px 8px"}}>Canaux</div>
+          <ConvBtn label="💬 Général" sub="Tout le monde" active={active==="general"} onClick={()=>setActive("general")}/>
+          {groupes.length>0&&<div style={{fontSize:10,fontWeight:800,color:"#94a3b8",textTransform:"uppercase",padding:"10px 8px 6px"}}>Groupes</div>}
+          {groupes.map(g=>(
+            <ConvBtn key={g.id} label={"👥 "+g.nom} sub={`${(g.membres||[]).length} membre(s)`} active={active==="group:"+g.id} onClick={()=>setActive("group:"+g.id)}/>
+          ))}
+          <div style={{fontSize:10,fontWeight:800,color:"#94a3b8",textTransform:"uppercase",padding:"10px 8px 6px"}}>Messages privés</div>
+          {autres.length===0?<div style={{fontSize:11,color:"#cbd5e1",padding:"4px 8px"}}>Aucun autre membre.</div>:autres.map(u=>(
+            <ConvBtn key={u.id} label={"👤 "+u.prenom+" "+u.nom} sub={u.role} active={active===dmKey(me.id,u.id)} onClick={()=>setActive(dmKey(me.id,u.id))}/>
+          ))}
+        </Card>
+
+        {/* Zone de chat */}
+        <Card s={{display:"flex",flexDirection:"column",padding:0,overflow:"hidden"}}>
+          <div style={{padding:"12px 16px",borderBottom:"1px solid #f1f5f9",fontWeight:800,fontSize:13,color:"#0f172a"}}>{activeTitle}</div>
+          <div style={{flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10}}>
+            {msgs.length===0?<div style={{textAlign:"center",color:"#94a3b8",padding:"40px 0"}}><div style={{fontSize:32}}>💬</div><p style={{fontSize:13}}>Aucun message. Démarrez la conversation !</p></div>:
+            msgs.map(m=>{const mine=m.auteur===myName;const fichiers=Array.isArray(m.fichiers)?m.fichiers:[];return(
+              <div key={m.id} style={{display:"flex",flexDirection:"column",alignItems:mine?"flex-end":"flex-start"}}>
+                {!mine&&<div style={{fontSize:10,color:"#94a3b8",marginBottom:3}}>{m.auteur} · <Badge role={m.role}/></div>}
+                {m.texte&&<div style={{maxWidth:"72%",background:mine?"linear-gradient(135deg,#1a56db,#1e40af)":"#f1f5f9",color:mine?"#fff":"#0f172a",borderRadius:mine?"15px 15px 5px 15px":"15px 15px 15px 5px",padding:"9px 13px",fontSize:13,lineHeight:1.5,boxShadow:mine?"0 3px 10px -3px rgba(26,86,219,.5)":"none"}}>{m.texte}</div>}
+                {fichiers.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:7,marginTop:m.texte?5:0,justifyContent:mine?"flex-end":"flex-start",maxWidth:"72%"}}>
+                  {fichiers.map((f,k)=>{const isImg=(f.type||"").startsWith("image/");return isImg?(
+                    <a key={k} href={f.url} target="_blank" rel="noreferrer"><img src={f.url} alt={f.nom} style={{maxWidth:160,maxHeight:160,borderRadius:11,border:"1px solid #e2e8f0",display:"block"}}/></a>
+                  ):(
+                    <a key={k} href={f.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:8,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"8px 12px",textDecoration:"none",color:"#1a56db",fontSize:12,fontWeight:700,maxWidth:200}}>📎 <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.nom}</span></a>
+                  );})}
+                </div>}
+              </div>
+            );})}
+            <div ref={endRef}/>
+          </div>
+          <div style={{borderTop:"1px solid #f1f5f9"}}>
+            {pending.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:7,padding:"10px 15px 0"}}>
+              {pending.map((f,k)=>(
+                <div key={k} style={{display:"flex",alignItems:"center",gap:6,background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:9,padding:"4px 6px 4px 10px",fontSize:11,fontWeight:600,color:"#1a56db",maxWidth:160}}>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(f.type||"").startsWith("image/")?"🖼️":"📎"} {f.nom}</span>
+                  <button onClick={()=>setPending(p=>p.filter((_,j)=>j!==k))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12,fontWeight:800}}>✕</button>
+                </div>
+              ))}
+            </div>}
+            <div style={{padding:"12px 15px",display:"flex",gap:9,alignItems:"center"}}>
+              <input ref={fileRef} type="file" multiple onChange={pickFiles} style={{display:"none"}}/>
+              <button className="me-btn" onClick={()=>fileRef.current?.click()} disabled={uploading} title="Joindre des fichiers" style={{padding:"10px 13px",borderRadius:11,border:"1.5px solid #e2e8f0",background:"#fff",cursor:"pointer",fontSize:16}}>{uploading?"⏳":"📎"}</button>
+              <input value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Écrire un message..." style={{flex:1,padding:"10px 14px",borderRadius:11,border:"1.5px solid #e2e8f0",fontSize:13,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/>
+              <button className="me-btn" onClick={send} disabled={(!msg.trim()&&pending.length===0)||uploading} style={{padding:"10px 18px",borderRadius:11,border:"none",background:(msg.trim()||pending.length)?"linear-gradient(135deg,#1a56db,#1e40af)":"#e2e8f0",color:(msg.trim()||pending.length)?"#fff":"#94a3b8",fontSize:14,fontWeight:700,cursor:(msg.trim()||pending.length)?"pointer":"not-allowed",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>→</button>
             </div>
-          );})}
-          <div ref={endRef}/>
-        </div>
-        <div style={{padding:"12px 15px",borderTop:"1px solid #f1f5f9",display:"flex",gap:9}}>
-          <input value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Écrire un message..." style={{flex:1,padding:"9px 13px",borderRadius:10,border:"1.5px solid #e2e8f0",fontSize:13,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/>
-          <button onClick={send} disabled={!msg.trim()} style={{padding:"9px 16px",borderRadius:10,border:"none",background:msg.trim()?"#1a56db":"#e2e8f0",color:msg.trim()?"#fff":"#94a3b8",fontSize:12,fontWeight:700,cursor:msg.trim()?"pointer":"not-allowed",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>→</button>
-        </div>
-      </Card>
+          </div>
+        </Card>
+      </div>
+
+      {modalGroupe&&<Modal title="Créer un groupe" onClose={()=>setModalGroupe(false)}>
+        <Inp label="Nom du groupe *" value={grpNom} onChange={e=>setGrpNom(e.target.value)} placeholder="Ex: Profs 6ème Année"/>
+        <Lbl t="Membres du groupe">
+          {autres.length===0?<div style={{fontSize:12,color:"#94a3b8"}}>Aucun autre membre à ajouter.</div>:(
+            <div style={{display:"flex",flexWrap:"wrap",gap:7,maxHeight:200,overflowY:"auto"}}>
+              {autres.map(u=>{const on=grpMembres.includes(u.id);return(
+                <button key={u.id} type="button" onClick={()=>toggleMembre(u.id)} style={{padding:"6px 12px",borderRadius:20,border:on?"2px solid #1a56db":"1.5px solid #e2e8f0",background:on?"#eff6ff":"#fff",color:on?"#1a56db":"#64748b",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{on?"✓ ":""}{u.prenom} {u.nom}</button>
+              );})}
+            </div>
+          )}
+          <div style={{fontSize:11,color:"#94a3b8",marginTop:6}}>Vous serez automatiquement ajouté au groupe.</div>
+        </Lbl>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:6}}><Btn ch="Annuler" v="ghost" onClick={()=>setModalGroupe(false)}/><Btn ch="Créer le groupe" v="success" onClick={creerGroupe} disabled={!grpNom.trim()||grpMembres.length===0}/></div>
+      </Modal>}
     </div>
   );
 }
@@ -2121,18 +2267,20 @@ const NAV=[
   {id:"dashboard",l:"Tableau de bord",icon:"📊"},
   {id:"classes",l:"Classes",icon:"🏫"},
   {id:"matieres",l:"Matières",icon:"📖"},
-  {id:"eleves",l:"Élèves",icon:"👨‍🎓"},
+  {id:"eleves",l:"Élèves",icon:"👨‍🎓",prof:true},
   {id:"professeurs",l:"Professeurs",icon:"👨‍🏫"},
-  {id:"emploi",l:"Emploi du temps",icon:"🗓️"},
-  {id:"notes",l:"Saisie des notes",icon:"📝"},
+  {id:"emploi",l:"Emploi du temps",icon:"🗓️",prof:true},
+  {id:"notes",l:"Saisie des notes",icon:"📝",prof:true},
   {id:"bulletins",l:"Bulletins",icon:"📄"},
   {id:"fiche_notes",l:"Fiche de notes",icon:"🖨️"},
   {id:"paiements",l:"Paiements",icon:"💰"},
-  {id:"presences",l:"Présences",icon:"📅"},
-  {id:"messagerie",l:"Messagerie",icon:"💬"},
+  {id:"presences",l:"Présences",icon:"📅",prof:true},
+  {id:"messagerie",l:"Messagerie",icon:"💬",prof:true},
   {id:"utilisateurs",l:"Utilisateurs",icon:"👤"},
   {id:"parametres",l:"Établissement",icon:"⚙️"},
 ];
+// Le rôle Professeur a un menu limité (entrées avec prof:true) + Tableau de bord
+const navForRole=(role)=> role==="Professeur" ? NAV.filter(n=>n.prof||n.id==="dashboard") : NAV;
 
 // ── APP PRINCIPALE ────────────────────────────────────────────────────────────
 function CheckScreen({codeActivation,onResult}) {
@@ -2224,13 +2372,17 @@ function App() {
   // Écran normal pour les écoles : connexion directe
   if(screen==="login") return <Login onLogin={(u,e)=>{setCurrentUser(u);setEtab(e||etab);setScreen("app");}}/>;
 
+  // Sécurité : un professeur ne peut afficher que les pages autorisées
+  const allowed=navForRole(currentUser?.role).map(n=>n.id);
+  const safePage=allowed.includes(page)?page:"dashboard";
+
   const pages={
     dashboard:<Dashboard data={data} etab={etab||{}} setPage={setPage}/>,
     classes:<Classes data={data} ops={ops} etab={etab||{}}/>,
     matieres:<Matieres data={data} ops={ops}/>,
     eleves:<Eleves data={data} ops={ops} etab={etab||{}}/>,
     professeurs:<Professeurs data={data} ops={ops} etab={etab||{}}/>,
-    emploi:<EmploiTemps data={data} ops={ops} etab={etab||{}}/>,
+    emploi:<EmploiTemps data={data} ops={ops} etab={etab||{}} currentUser={currentUser}/>,
     notes:<Notes data={data} ops={ops} etab={etab||{}} currentUser={currentUser}/>,
     bulletins:<Bulletins data={data} etab={etab||{}}/>,
     fiche_notes:<FicheNotes data={data} ops={ops} etab={etab||{}} onEtabUpdate={setEtab}/>,
@@ -2258,7 +2410,7 @@ function App() {
           <div style={{display:"flex",justifyContent:"center"}}><SyncBadge status={syncStatus}/></div>
         </div>
         <nav style={{flex:1,padding:"8px 6px",overflowY:"auto"}}>
-          {NAV.map(n=>(
+          {navForRole(currentUser?.role).map(n=>(
             <button key={n.id} className="me-nav" onClick={()=>setPage(n.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"9px 11px",borderRadius:10,border:"none",cursor:"pointer",textAlign:"left",marginBottom:2,background:page===n.id?"linear-gradient(135deg,#1a56db,#1e40af)":"transparent",color:page===n.id?"#fff":"rgba(255,255,255,0.5)",fontWeight:page===n.id?700:500,fontSize:11.5,fontFamily:"'Plus Jakarta Sans',sans-serif",boxShadow:page===n.id?"0 4px 12px -4px rgba(26,86,219,.6)":"none"}}
               onMouseOver={e=>{if(page!==n.id){e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color="rgba(255,255,255,0.8)";}}}
               onMouseOut={e=>{if(page!==n.id){e.currentTarget.style.background="transparent";e.currentTarget.style.color="rgba(255,255,255,0.5)";}}}>
@@ -2270,7 +2422,7 @@ function App() {
           <button className="me-btn" onClick={()=>{setCurrentUser(null);setScreen("login");}} style={{width:"100%",background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🚪 Déconnexion</button>
         </div>
       </div>
-      <div style={{flex:1,overflowY:"auto",padding:"26px 28px"}}><div key={page} className="me-page">{pages[page]}</div></div>
+      <div style={{flex:1,overflowY:"auto",padding:"26px 28px"}}><div key={safePage} className="me-page">{pages[safePage]}</div></div>
     </div>
   );
 }
