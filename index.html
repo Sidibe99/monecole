@@ -1332,65 +1332,113 @@ function Eleves({data,ops,etab}) {
 }
 
 // ── NOTES ─────────────────────────────────────────────────────────────────────
-function Notes({data,ops,etab}) {
+function Notes({data,ops,etab,currentUser}) {
   const periodes=periodesList(etab.systeme);
   const [periode,setPeriode]=useState(periodes[0]);
   const [classeId,setClasseId]=useState(data.classes[0]?.id||"");
-  const [matiereId,setMatiereId]=useState(data.matieres[0]?.id||"");
   const [localNotes,setLocalNotes]=useState({});
   const [saving,setSaving]=useState(false);
-  const classeEleves=data.eleves.filter(e=>e.classe_id===parseInt(classeId));
-  const matiere=data.matieres.find(m=>m.id===parseInt(matiereId));
+  const [dirty,setDirty]=useState(false);
+  const [search,setSearch]=useState("");
+  const inputsRef=useRef([]);
+
   const classeSel=data.classes.find(c=>c.id===parseInt(classeId));
   const bareme=baremeOf(classeSel?.niveau);
-  useEffect(()=>{const n={};classeEleves.forEach(e=>{n[e.id]=e.notes?.[periode]?.[matiereId]??""});setLocalNotes(n);},[periode,classeId,matiereId,data.eleves]);
+  // Restriction matières : un Professeur ne voit que ses matières autorisées
+  const isProf=currentUser?.role==="Professeur";
+  const autorisees=Array.isArray(currentUser?.matieres_autorisees)?currentUser.matieres_autorisees:[];
+  // Matières du cycle de la classe + filtrage prof
+  const matieresCycle=data.matieres.filter(m=>(!m.cycles||m.cycles.length===0||m.cycles.includes(classeSel?.niveau)) && (!isProf||autorisees.includes(m.id)));
+  const [matiereId,setMatiereId]=useState(matieresCycle[0]?.id||"");
+  // Si la matière courante n'est plus valide (changement de classe), réajuster
+  useEffect(()=>{ if(!matieresCycle.find(m=>m.id===parseInt(matiereId))){ setMatiereId(matieresCycle[0]?.id||""); } },[classeId,data.matieres]);
+
+  const matiere=data.matieres.find(m=>m.id===parseInt(matiereId));
+  const classeElevesAll=data.eleves.filter(e=>e.classe_id===parseInt(classeId));
+  const classeEleves=classeElevesAll.filter(e=>`${e.prenom} ${e.nom} ${e.matricule}`.toLowerCase().includes(search.toLowerCase()));
+
+  useEffect(()=>{const n={};classeElevesAll.forEach(e=>{n[e.id]=e.notes?.[periode]?.[matiereId]??""});setLocalNotes(n);setDirty(false);},[periode,classeId,matiereId,data.eleves]);
+
+  const setNote=(id,val)=>{setLocalNotes(n=>({...n,[id]:val}));setDirty(true);};
   const saveAll=async()=>{
     setSaving(true);
-    const updates=classeEleves.map(e=>({id:e.id,notes:{...(e.notes||{}),[periode]:{...(e.notes?.[periode]||{}),[matiereId]:parseFloat(localNotes[e.id])||0}}}));
-    await ops.saveAllNotes(updates);setSaving(false);
+    const updates=classeElevesAll.map(e=>({id:e.id,notes:{...(e.notes||{}),[periode]:{...(e.notes?.[periode]||{}),[matiereId]:localNotes[e.id]===""||localNotes[e.id]==null?null:parseFloat(localNotes[e.id])}}}));
+    await ops.saveAllNotes(updates);setSaving(false);setDirty(false);
   };
+  // Navigation clavier : Entrée = champ suivant
+  const onKey=(e,idx)=>{ if(e.key==="Enter"){e.preventDefault();const next=inputsRef.current[idx+1];if(next)next.focus();} };
+
+  // Statistiques en direct
+  const notesValides=classeElevesAll.map(e=>localNotes[e.id]).filter(v=>v!==""&&v!=null&&!isNaN(parseFloat(v))).map(v=>parseFloat(v));
+  const moyClasse=notesValides.length?(notesValides.reduce((a,b)=>a+b,0)/notesValides.length):null;
+  const plusHaut=notesValides.length?Math.max(...notesValides):null;
+  const plusBas=notesValides.length?Math.min(...notesValides):null;
+  const nbAdmis=notesValides.filter(v=>v>=bareme/2).length;
+  const nbRemplies=notesValides.length;
+  const totalEleves=classeElevesAll.length;
+
   const printFiche=()=>{
-    const cl=data.classes.find(c=>c.id===parseInt(classeId));
-    const rows=classeEleves.map((e,i)=>{const note=localNotes[e.id];const app=note!==""&&note!=null?MENTION(note,bareme):{t:"Non noté",c:"#94a3b8",bg:"#f8fafc"};return`<tr><td>${i+1}</td><td><b>${e.prenom} ${e.nom}</b></td><td>${e.matricule}</td><td style="text-align:center;font-weight:900;font-size:16px;color:${app.c}">${note!==""&&note!=null?note:"—"}</td><td>${app.t}</td></tr>`;}).join("");
+    const cl=classeSel;
+    const rows=classeElevesAll.map((e,i)=>{const note=localNotes[e.id];const app=note!==""&&note!=null?MENTION(note,bareme):{t:"Non noté",c:"#94a3b8",bg:"#f8fafc"};return`<tr><td>${i+1}</td><td><b>${e.prenom} ${e.nom}</b></td><td>${e.matricule}</td><td style="text-align:center;font-weight:900;font-size:16px;color:${app.c}">${note!==""&&note!=null?note:"—"}</td><td>${app.t}</td></tr>`;}).join("");
     printHTML(`${officialHeader(etab,{classe:cl?.nom,docTitle:`Fiche de notes — ${matiere?.nom}`})}
     <p style="font-size:12px;color:#475569">Période : <b>${periode}</b> · Coefficient : <b>${matiere?.coefficient}</b> · Enseignant : <b>${matiere?.enseignant||"—"}</b></p>
     <table><tr><th>N°</th><th>Élève</th><th>Matricule</th><th>Note /${bareme}</th><th>Appréciation</th></tr>${rows}</table>
     <div class="sign"><span>Le/La titulaire : ____________________</span><span>Date : ____________</span></div>`,`Fiche Notes - ${matiere?.nom}`);
   };
+
   if(data.classes.length===0||data.matieres.length===0) return <Card><Empty icon="📝" text="Créez d'abord des classes et matières."/></Card>;
+  if(isProf&&autorisees.length===0) return <Card><Empty icon="🔒" text="Aucune matière ne vous est attribuée. Demandez à l'administrateur de vous attribuer vos matières."/></Card>;
+
   return(
     <div>
       <SHdr title="Saisie des notes 📝" sub="Par période, classe et matière" action={
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {dirty&&<span style={{fontSize:11,color:"#c2410c",fontWeight:700,background:"#fff7ed",padding:"5px 11px",borderRadius:8,border:"1px solid #fed7aa"}}>● Non enregistré</span>}
           <Btn ch="🖨️ Fiche" v="ghost" onClick={printFiche}/>
-          <button onClick={saveAll} disabled={saving} style={{padding:"9px 20px",borderRadius:9,border:"none",background:"#1a56db",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
-            {saving?"⏳ Sync...":"💾 Enregistrer"}
-          </button>
+          <Btn ch={saving?"⏳ Sync...":(dirty?"💾 Enregistrer":"✓ Enregistré")} v={dirty?"success":"ghost"} onClick={saveAll} disabled={saving||!dirty}/>
         </div>
       }/>
       <Card s={{marginBottom:14}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:13}}>
           <Slt label="Période" value={periode} onChange={e=>setPeriode(e.target.value)} opts={periodes}/>
-          <Slt label="Classe" value={classeId} onChange={e=>setClasseId(e.target.value)} opts={data.classes.map(c=>({v:c.id,l:c.nom}))}/>
-          <Slt label="Matière" value={matiereId} onChange={e=>setMatiereId(e.target.value)} opts={data.matieres.map(m=>({v:m.id,l:`${m.nom} (coef ${m.coefficient})`}))}/>
+          <Slt label="Classe" value={classeId} onChange={e=>{setClasseId(e.target.value);}} opts={data.classes.map(c=>({v:c.id,l:c.nom}))}/>
+          <Slt label="Matière" value={matiereId} onChange={e=>setMatiereId(e.target.value)} opts={matieresCycle.length?matieresCycle.map(m=>({v:m.id,l:`${m.nom} (coef ${m.coefficient})`})):[{v:"",l:"Aucune matière"}]}/>
         </div>
+        {isProf&&<div style={{fontSize:11,color:"#1a56db",marginTop:8,fontWeight:600}}>🔒 Vous voyez uniquement vos matières attribuées.</div>}
       </Card>
-      {classeEleves.length===0?<Card><Empty icon="👨‍🎓" text="Aucun élève dans cette classe."/></Card>:(
-        <Card>
-          <div style={{fontWeight:700,fontSize:13,color:"#0f172a",marginBottom:12}}>📋 {matiere?.nom} — {periode}</div>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr style={{background:"#f8fafc"}}>{["N°","Élève",`Note /${bareme}`,"Appréciation"].map(h=><th key={h} style={{padding:"10px 13px",textAlign:"left",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
-            <tbody>{classeEleves.map((e,i)=>{
-              const note=localNotes[e.id]??"";const m=note!==""?MENTION(note,bareme):null;
-              return(<tr key={e.id} style={{borderTop:"1px solid #f8fafc"}}>
-                <td style={{padding:"9px 13px",fontSize:12,color:"#94a3b8"}}>{i+1}</td>
-                <td style={{padding:"9px 13px"}}><div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{e.prenom} {e.nom}</div><div style={{fontSize:11,color:"#94a3b8"}}>{e.matricule}</div></td>
-                <td style={{padding:"7px 13px"}}><input type="number" min="0" max={bareme} step="0.25" value={note} onChange={ev=>setLocalNotes(n=>({...n,[e.id]:ev.target.value}))} style={{width:78,padding:"7px 10px",borderRadius:8,border:`2px solid ${note!==""&&parseFloat(note)<bareme/2?"#fca5a5":"#e2e8f0"}`,fontSize:14,fontWeight:700,textAlign:"center",outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",color:m?.c||"#0f172a"}}/></td>
-                <td style={{padding:"9px 13px"}}>{m&&<span style={{background:m.bg,color:m.c,borderRadius:7,padding:"3px 9px",fontSize:11,fontWeight:700}}>{m.t}</span>}</td>
-              </tr>);
-            })}</tbody>
-          </table>
-        </Card>
+
+      {matieresCycle.length===0?<Card><Empty icon="📚" text="Aucune matière pour ce cycle / cette classe."/></Card>:
+       classeElevesAll.length===0?<Card><Empty icon="👨‍🎓" text="Aucun élève dans cette classe."/></Card>:(
+        <>
+          {/* Statistiques en direct */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:11,marginBottom:14}}>
+            <div style={{background:"#fff",borderRadius:14,padding:"13px 16px",border:"1px solid #eef2f7"}}><div style={{fontSize:10,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Moyenne classe</div><div style={{fontSize:21,fontWeight:900,color:moyClasse!=null?(moyClasse>=bareme/2?"#059669":"#dc2626"):"#cbd5e1",fontFamily:"'Sora',sans-serif"}}>{moyClasse!=null?moyClasse.toFixed(2):"—"}<span style={{fontSize:12,color:"#cbd5e1",fontWeight:600}}>/{bareme}</span></div></div>
+            <div style={{background:"#fff",borderRadius:14,padding:"13px 16px",border:"1px solid #eef2f7"}}><div style={{fontSize:10,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Plus haute</div><div style={{fontSize:21,fontWeight:900,color:"#059669",fontFamily:"'Sora',sans-serif"}}>{plusHaut!=null?plusHaut:"—"}</div></div>
+            <div style={{background:"#fff",borderRadius:14,padding:"13px 16px",border:"1px solid #eef2f7"}}><div style={{fontSize:10,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Plus basse</div><div style={{fontSize:21,fontWeight:900,color:"#dc2626",fontFamily:"'Sora',sans-serif"}}>{plusBas!=null?plusBas:"—"}</div></div>
+            <div style={{background:"#fff",borderRadius:14,padding:"13px 16px",border:"1px solid #eef2f7"}}><div style={{fontSize:10,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Admis (≥{bareme/2})</div><div style={{fontSize:21,fontWeight:900,color:"#1a56db",fontFamily:"'Sora',sans-serif"}}>{nbAdmis}<span style={{fontSize:12,color:"#cbd5e1",fontWeight:600}}>/{nbRemplies}</span></div></div>
+            <div style={{background:"#fff",borderRadius:14,padding:"13px 16px",border:"1px solid #eef2f7"}}><div style={{fontSize:10,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Saisies</div><div style={{fontSize:21,fontWeight:900,color:"#0f172a",fontFamily:"'Sora',sans-serif"}}>{nbRemplies}<span style={{fontSize:12,color:"#cbd5e1",fontWeight:600}}>/{totalEleves}</span></div></div>
+          </div>
+
+          <Card>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>📋 {matiere?.nom} — {periode}</div>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher un élève..." style={{padding:"7px 12px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",width:210}}/>
+            </div>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr style={{background:"#f8fafc"}}>{["N°","Élève",`Note /${bareme}`,"Appréciation"].map(h=><th key={h} style={{padding:"10px 13px",textAlign:"left",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+              <tbody>{classeEleves.map((e,i)=>{
+                const note=localNotes[e.id]??"";const m=note!==""?MENTION(note,bareme):null;
+                return(<tr key={e.id} className="me-row" style={{borderTop:"1px solid #f4f7fb"}}>
+                  <td style={{padding:"9px 13px",fontSize:12,color:"#94a3b8"}}>{i+1}</td>
+                  <td style={{padding:"9px 13px"}}><div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{e.prenom} {e.nom}</div><div style={{fontSize:11,color:"#94a3b8"}}>{e.matricule}</div></td>
+                  <td style={{padding:"7px 13px"}}><input ref={el=>inputsRef.current[i]=el} onKeyDown={ev=>onKey(ev,i)} type="number" min="0" max={bareme} step="0.25" value={note} onChange={ev=>setNote(e.id,ev.target.value)} style={{width:80,padding:"8px 10px",borderRadius:9,border:`2px solid ${note!==""&&parseFloat(note)<bareme/2?"#fca5a5":"#e2e8f0"}`,fontSize:14,fontWeight:700,textAlign:"center",outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",color:m?.c||"#0f172a"}}/></td>
+                  <td style={{padding:"9px 13px"}}>{m&&<span style={{background:m.bg,color:m.c,borderRadius:7,padding:"3px 9px",fontSize:11,fontWeight:700}}>{m.t}</span>}</td>
+                </tr>);
+              })}</tbody>
+            </table>
+            {classeEleves.length===0&&<div style={{padding:18,textAlign:"center",color:"#94a3b8",fontSize:12}}>Aucun élève ne correspond à la recherche.</div>}
+          </Card>
+        </>
       )}
     </div>
   );
@@ -1838,11 +1886,12 @@ function Messagerie({data,ops,currentUser}) {
 
 // ── UTILISATEURS ──────────────────────────────────────────────────────────────
 function Utilisateurs({data,ops,currentUser}) {
-  const [modal,setModal]=useState(null);const [form,setForm]=useState({nom:"",prenom:"",genre:"",identifiant:"",password:"",role:"Professeur"});const [loading,setLoading]=useState(false);
-  const save=async()=>{if(!form.nom||!form.identifiant)return;setLoading(true);if(modal==="add")await ops.addUser(form);else await ops.updateUser(modal,{nom:form.nom,prenom:form.prenom,genre:form.genre,identifiant:form.identifiant,role:form.role,...(form.password?{password:form.password}:{})});setLoading(false);setModal(null);};
+  const [modal,setModal]=useState(null);const [form,setForm]=useState({nom:"",prenom:"",genre:"",identifiant:"",password:"",role:"Professeur",matieres_autorisees:[]});const [loading,setLoading]=useState(false);
+  const toggleMat=id=>setForm(f=>({...f,matieres_autorisees:(f.matieres_autorisees||[]).includes(id)?f.matieres_autorisees.filter(x=>x!==id):[...(f.matieres_autorisees||[]),id]}));
+  const save=async()=>{if(!form.nom||!form.identifiant)return;setLoading(true);const payload={nom:form.nom,prenom:form.prenom,genre:form.genre,identifiant:form.identifiant,role:form.role,matieres_autorisees:form.role==="Professeur"?(form.matieres_autorisees||[]):[]};if(modal==="add")await ops.addUser({...payload,password:form.password});else await ops.updateUser(modal,{...payload,...(form.password?{password:form.password}:{})});setLoading(false);setModal(null);};
   return(
     <div>
-      <SHdr title="Utilisateurs 👤" sub="Gérez les accès" action={currentUser.role==="Administrateur"?<Btn ch="+ Nouvel utilisateur" v="primary" onClick={()=>{setForm({nom:"",prenom:"",genre:"",identifiant:"",password:"",role:"Professeur"});setModal("add");}}/>:null}/>
+      <SHdr title="Utilisateurs 👤" sub="Gérez les accès" action={currentUser.role==="Administrateur"?<Btn ch="+ Nouvel utilisateur" v="primary" onClick={()=>{setForm({nom:"",prenom:"",genre:"",identifiant:"",password:"",role:"Professeur",matieres_autorisees:[]});setModal("add");}}/>:null}/>
       <Tbl cols={["Utilisateur","Identifiant","Rôle","Actions"]} empty={<Empty icon="👤" text="Aucun utilisateur."/>}
         rows={data.utilisateurs.map(u=>(
           <TR key={u.id}>
@@ -1850,7 +1899,7 @@ function Utilisateurs({data,ops,currentUser}) {
             <TD mono>{u.identifiant}</TD>
             <TD><Badge role={u.role}/></TD>
             <TD>{currentUser.role==="Administrateur"&&<div style={{display:"flex",gap:6}}>
-              <button onClick={()=>{setForm({nom:u.nom,prenom:u.prenom||"",genre:u.genre||"",identifiant:u.identifiant,password:"",role:u.role});setModal(u.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
+              <button onClick={()=>{setForm({nom:u.nom,prenom:u.prenom||"",genre:u.genre||"",identifiant:u.identifiant,password:"",role:u.role,matieres_autorisees:Array.isArray(u.matieres_autorisees)?u.matieres_autorisees:[]});setModal(u.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
               {u.id!==currentUser.id&&<button onClick={()=>ops.deleteUser(u.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>}
             </div>}</TD>
           </TR>
@@ -1865,6 +1914,16 @@ function Utilisateurs({data,ops,currentUser}) {
         <Slt label="Genre" value={form.genre} onChange={e=>setForm(f=>({...f,genre:e.target.value}))} opts={[{v:"",l:"— Choisir —"},{v:"M",l:"Masculin"},{v:"F",l:"Féminin"}]}/>
         <Lbl t={modal==="add"?"Mot de passe *":"Nouveau mot de passe"}><input type="password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} style={iSt()}/></Lbl>
         <Slt label="Rôle" value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))} opts={["Administrateur","Directeur","Secrétaire","Professeur","Comptable"]}/>
+        {form.role==="Professeur"&&<Lbl t="Matières enseignées (accès en saisie de notes)">
+          {data.matieres.length===0?<div style={{fontSize:12,color:"#94a3b8"}}>Aucune matière créée.</div>:(
+            <div style={{display:"flex",flexWrap:"wrap",gap:7,maxHeight:160,overflowY:"auto",padding:"2px"}}>
+              {data.matieres.map(m=>{const on=(form.matieres_autorisees||[]).includes(m.id);return(
+                <button key={m.id} type="button" onClick={()=>toggleMat(m.id)} style={{padding:"6px 12px",borderRadius:20,border:on?"2px solid #1a56db":"1.5px solid #e2e8f0",background:on?"#eff6ff":"#fff",color:on?"#1a56db":"#64748b",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{on?"✓ ":""}{m.nom}</button>
+              );})}
+            </div>
+          )}
+          <div style={{fontSize:11,color:"#94a3b8",marginTop:6}}>Le professeur ne pourra saisir que les notes des matières cochées.</div>
+        </Lbl>}
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ch="Annuler" v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":"Enregistrer"} v="success" onClick={save} disabled={loading}/></div>
       </Modal>}
     </div>
@@ -2172,7 +2231,7 @@ function App() {
     eleves:<Eleves data={data} ops={ops} etab={etab||{}}/>,
     professeurs:<Professeurs data={data} ops={ops} etab={etab||{}}/>,
     emploi:<EmploiTemps data={data} ops={ops} etab={etab||{}}/>,
-    notes:<Notes data={data} ops={ops} etab={etab||{}}/>,
+    notes:<Notes data={data} ops={ops} etab={etab||{}} currentUser={currentUser}/>,
     bulletins:<Bulletins data={data} etab={etab||{}}/>,
     fiche_notes:<FicheNotes data={data} ops={ops} etab={etab||{}} onEtabUpdate={setEtab}/>,
     paiements:<Paiements data={data} ops={ops} etab={etab||{}}/>,
