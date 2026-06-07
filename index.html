@@ -421,8 +421,6 @@ function Onboarding({codeActivation,onDone}) {
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 function Login({onLogin}) {
   const [id,setId]=useState("");const [pw,setPw]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
-  const [showCfg,setShowCfg]=useState(false);
-  const [cfgUrl,setCfgUrl]=useState("");const [cfgKey,setCfgKey]=useState("");
   const go=async()=>{
     setLoading(true);setErr("");
     try {
@@ -444,18 +442,6 @@ function Login({onLogin}) {
         <Lbl t="Mot de passe"><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} style={iSt()} placeholder="••••••••"/></Lbl>
         {err&&<div style={{background:"#fef2f2",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,marginBottom:12}}>{err}</div>}
         <Btn ch={loading?"Connexion...":"Se connecter →"} v="primary" onClick={go} disabled={!id||!pw||loading} full/>
-        <div style={{textAlign:"center",marginTop:16,paddingTop:14,borderTop:"1px solid #f1f5f9"}}>
-          <button onClick={()=>{setShowCfg(s=>!s);}} style={{background:"none",border:"none",color:"#94a3b8",fontSize:11,cursor:"pointer",fontWeight:600}}>⚙️ Configurer la base de données de l'école</button>
-        </div>
-        {showCfg&&<div style={{marginTop:12,background:"#f8fafc",borderRadius:12,padding:16}}>
-          <div style={{fontSize:11,color:"#64748b",marginBottom:12,lineHeight:1.5}}>Chaque école a sa propre base isolée. Collez l'<b>URL</b> et la <b>clé anon</b> de votre projet Supabase. {SB_CONFIG.custom?<span style={{color:"#059669",fontWeight:700}}>✓ Base personnalisée active.</span>:<span style={{color:"#c2410c",fontWeight:700}}>Base de démonstration active.</span>}</div>
-          <Inp label="URL du projet Supabase" value={cfgUrl} onChange={e=>setCfgUrl(e.target.value)} placeholder="https://xxxx.supabase.co"/>
-          <Lbl t="Clé anon (public)"><textarea value={cfgKey} onChange={e=>setCfgKey(e.target.value)} style={{...iSt(),minHeight:60,resize:"vertical",fontFamily:"monospace",fontSize:10}} placeholder="eyJhbGc..."/></Lbl>
-          <div style={{display:"flex",gap:8}}>
-            <Btn ch="Enregistrer & recharger" v="success" s={{flex:1}} onClick={()=>{if(cfgUrl.trim()&&cfgKey.trim())saveSupabaseConfig(cfgUrl,cfgKey);}} disabled={!cfgUrl.trim()||!cfgKey.trim()}/>
-            {SB_CONFIG.custom&&<Btn ch="Réinitialiser" v="ghost" onClick={resetSupabaseConfig}/>}
-          </div>
-        </div>}
       </div>
     </div>
   );
@@ -2102,6 +2088,41 @@ function MasterGate({onOk}) {
   );
 }
 
+// Espace éditeur : configuration de la base + création d'école
+function EditorHub({onCreate}) {
+  const [cfgUrl,setCfgUrl]=useState("");const [cfgKey,setCfgKey]=useState("");
+  return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1a56db)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",padding:16}}>
+      <div style={{background:"#fff",borderRadius:22,padding:34,width:480,maxWidth:"100%",boxShadow:"0 32px 80px rgba(0,0,0,0.3)",maxHeight:"92vh",overflow:"auto"}}>
+        <div style={{textAlign:"center",marginBottom:20}}>
+          <div style={{width:54,height:54,borderRadius:15,background:"#eff6ff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,margin:"0 auto 12px"}}>🛠️</div>
+          <h2 style={{margin:"0 0 3px",fontSize:19,fontWeight:900,color:"#0f172a"}}>Espace éditeur</h2>
+          <p style={{margin:0,color:"#94a3b8",fontSize:12}}>Configurer une base et créer une nouvelle école</p>
+        </div>
+
+        <div style={{background:"#f8fafc",borderRadius:13,padding:16,marginBottom:16}}>
+          <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:4}}>1️⃣ Base de données de l'école</div>
+          <div style={{fontSize:11,color:"#64748b",marginBottom:12,lineHeight:1.5}}>Collez l'<b>URL</b> et la <b>clé anon</b> du projet Supabase de cette école. {SB_CONFIG.custom?<span style={{color:"#059669",fontWeight:700}}>✓ Base personnalisée active.</span>:<span style={{color:"#c2410c",fontWeight:700}}>Base de démonstration active.</span>}</div>
+          <Inp label="URL du projet Supabase" value={cfgUrl} onChange={e=>setCfgUrl(e.target.value)} placeholder="https://xxxx.supabase.co"/>
+          <Lbl t="Clé anon (public)"><textarea value={cfgKey} onChange={e=>setCfgKey(e.target.value)} style={{...iSt(),minHeight:54,resize:"vertical",fontFamily:"monospace",fontSize:10}} placeholder="eyJhbGc..."/></Lbl>
+          <div style={{display:"flex",gap:8}}>
+            <Btn ch="Enregistrer & recharger" v="success" s={{flex:1}} onClick={()=>{if(cfgUrl.trim()&&cfgKey.trim())saveSupabaseConfig(cfgUrl,cfgKey);}} disabled={!cfgUrl.trim()||!cfgKey.trim()}/>
+            {SB_CONFIG.custom&&<Btn ch="Réinitialiser" v="ghost" onClick={resetSupabaseConfig}/>}
+          </div>
+        </div>
+
+        <div style={{background:"#f8fafc",borderRadius:13,padding:16,marginBottom:14}}>
+          <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:4}}>2️⃣ Créer l'école</div>
+          <div style={{fontSize:11,color:"#64748b",marginBottom:12,lineHeight:1.5}}>Une fois la bonne base active ci-dessus, créez l'établissement et son compte administrateur.</div>
+          <Btn ch="Créer une nouvelle école →" v="primary" onClick={onCreate} full/>
+        </div>
+
+        <div style={{textAlign:"center"}}><a href="#" onClick={e=>{e.preventDefault();try{location.hash="";}catch(_){};location.reload();}} style={{color:"#94a3b8",fontSize:11,textDecoration:"none"}}>← Retour à la connexion</a></div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   // Mode création (éditeur) seulement si l'URL contient #admin-create
   const adminMode = isAdminCreateMode();
@@ -2116,7 +2137,8 @@ function App() {
   useEffect(()=>{const l=document.createElement("link");l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap";l.rel="stylesheet";document.head.appendChild(l);},[]);
 
   // Espace éditeur (création d'école) — protégé par mot de passe maître
-  if(screen==="master") return <MasterGate onOk={()=>setScreen("activation")}/>;
+  if(screen==="master") return <MasterGate onOk={()=>setScreen("editor")}/>;
+  if(screen==="editor") return <EditorHub onCreate={()=>setScreen("activation")}/>;
   if(screen==="activation") return <ActivationScreen onDone={c=>{setCodeActivation(c);setScreen("check");}}/>;
   if(screen==="check") return <CheckScreen codeActivation={codeActivation} onResult={(e)=>{if(e){setEtab(e);setScreen("login");}else setScreen("onboarding");}}/>;
   if(screen==="onboarding") return <Onboarding codeActivation={codeActivation} onDone={(e,a)=>{setEtab(e);setCurrentUser(a);setScreen("app");}}/>;
