@@ -235,7 +235,7 @@ const officialHeader = (etab={}, opts={}) => {
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px">
         <div style="text-align:left;flex:1">
-          <div>${ministere}</div>
+          <div><b>${ministere}</b></div>
           ${ire?`<div><b>IRE :</b> ${ire}</div>`:""}
           ${dpe?`<div><b>DPE :</b> ${dpe}</div>`:""}
           ${dsee?`<div><b>DSEE :</b> ${dsee}</div>`:""}
@@ -266,7 +266,7 @@ const officialHeader = (etab={}, opts={}) => {
     ${logoAuMilieu}
     <div class="oh-body">
       <div class="oh-left">
-        <div>${ministere}</div>
+        <div><b>${ministere}</b></div>
         ${ire?`<div><b>IRE :</b> ${ire}</div>`:""}
         ${dpe?`<div><b>DPE :</b> ${dpe}</div>`:""}
         ${dsee?`<div><b>DSEE :</b> ${dsee}</div>`:""}
@@ -289,10 +289,14 @@ const officialHeader = (etab={}, opts={}) => {
 const printHTML = (html, title="MonEcole", opts={}) => {
   const w=window.open("","_blank");
   const bodyPad = opts.compact ? "0" : "28px";
+  const et = opts.etab || {};
+  const col = et.theme_couleur || "#1a56db";
+  const police = et.theme_police || "'Segoe UI',Helvetica,Arial,sans-serif";
+  const titreCentre = et.theme_titre_centre!==false;
   w.document.write(`<html><head><title>${title}</title><style>
-    *{box-sizing:border-box} body{font-family:'Segoe UI',Helvetica,Arial,sans-serif;padding:${bodyPad};color:#1e293b;margin:0;font-size:13px;line-height:1.5}
+    *{box-sizing:border-box} body{font-family:${police};padding:${bodyPad};color:#1e293b;margin:0;font-size:13px;line-height:1.5}
     table{width:100%;border-collapse:collapse;margin:6px 0} td,th{border:1px solid #d8dee9;padding:8px 11px;font-size:12px}
-    th{background:#1a56db;color:#fff;font-weight:700;text-align:left} tr:nth-child(even) td{background:#f7f9fc}
+    th{background:${col};color:#fff;font-weight:700;text-align:left} tr:nth-child(even) td{background:#f7f9fc}
     h1{font-size:18px;margin:0 0 4px} h2{font-size:15px;margin:0 0 10px}
     /* En-tête officiel */
     .oh{margin-bottom:18px}
@@ -302,9 +306,9 @@ const printHTML = (html, title="MonEcole", opts={}) => {
     .oh-body{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}
     .oh-left>div,.oh-right>div{margin:1px 0}
     .oh-right{text-align:right}
-    .oh-title{text-align:center;margin-top:12px;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid #1a56db;border-radius:8px;padding:7px 0;background:#eff6ff}
+    .oh-title{text-align:center;margin:12px auto 0;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid ${col};border-radius:8px;padding:7px 18px;background:${col}12;display:block;max-width:60%}
     /* Anciens en-têtes conservés pour compat */
-    .header{text-align:center;border-bottom:3px solid #1a56db;padding-bottom:14px;margin-bottom:18px}
+    .header{text-align:center;border-bottom:3px solid ${col};padding-bottom:14px;margin-bottom:18px}
     .grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:16px;border:1px solid #e8edf4}
     .result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}
     .stat{text-align:center} .stat-val{font-size:26px;font-weight:900} .stat-lbl{font-size:10px;color:#666;text-transform:uppercase}
@@ -1146,7 +1150,7 @@ function EmploiTemps({data,ops,etab,currentUser}) {
           </tr>`).join("")}</tbody>
         </table>
       </div>`).join("");
-    printHTML(`${officialHeader(etab,{classe:classe.nom,docTitle:"EMPLOI DU TEMPS"})}${corps||"<p>Aucun cours programmé.</p>"}`,`Emploi du temps ${classe.nom}`);
+    printHTML(`${officialHeader(etab,{classe:classe.nom,docTitle:"EMPLOI DU TEMPS"})}${corps||"<p>Aucun cours programmé.</p>"}`,`Emploi du temps ${classe.nom}`,{etab});
   };
   return(
     <div>
@@ -1290,7 +1294,7 @@ function FicheNotes({data,ops,etab,onEtabUpdate}) {
       <table style="width:100%;border-collapse:collapse;margin-top:8px">
         <thead><tr>${th}</tr></thead>
         <tbody>${rowsEleves}${rowsVides}</tbody>
-      </table>`,`${titre} ${classe.nom}`);
+      </table>`,`${titre} ${classe.nom}`,{etab});
   };
 
   return(
@@ -1531,7 +1535,7 @@ function Notes({data,ops,etab,currentUser}) {
     printHTML(`${officialHeader(etab,{classe:cl?.nom,docTitle:`Fiche de notes — ${matiere?.nom}`})}
     <p style="font-size:12px;color:#475569">Période : <b>${periode}</b> · Coefficient : <b>${matiere?.coefficient}</b> · Enseignant : <b>${matiere?.enseignant||"—"}</b></p>
     <table><tr><th>N°</th><th>Élève</th><th>Matricule</th><th>Note /${bareme}</th><th>Appréciation</th></tr>${rows}</table>
-    <div class="sign"><span>Le/La titulaire : ____________________</span><span>Date : ____________</span></div>`,`Fiche Notes - ${matiere?.nom}`);
+    <div class="sign"><span>Le/La titulaire : ____________________</span><span>Date : ____________</span></div>`,`Fiche Notes - ${matiere?.nom}`,{etab});
   };
 
   if(data.classes.length===0||data.matieres.length===0) return <Card><Empty icon="📝" text="Créez d'abord des classes et matières."/></Card>;
@@ -1601,31 +1605,33 @@ function Bulletins({data,etab}) {
   const [filterCl,setFilterCl]=useState("");
   const filtered=data.eleves.filter(e=>!filterCl||e.classe_id===parseInt(filterCl));
 
-  // Bulletin annuel : toutes les périodes côte à côte + moyennes + moyenne annuelle
-  const bulletinAnnuelHTML=(e)=>{
+  // Bulletin cumulé : affiche les périodes fournies côte à côte + moyennes + moyenne cumulée
+  const bulletinAnnuelHTML=(e,persInput)=>{
+    const pers = persInput && persInput.length ? persInput : periodes;
     const cl=data.classes.find(c=>c.id===e.classe_id);
     const bareme=baremeOf(cl?.niveau);
-    const moyP=periodes.map(p=>parseFloat(calcMoy(e.notes||{},data.matieres,p))).map(v=>isNaN(v)?null:v);
+    const moyP=pers.map(p=>parseFloat(calcMoy(e.notes||{},data.matieres,p))).map(v=>isNaN(v)?null:v);
     const moyAnnuelle=(()=>{const vals=moyP.filter(v=>v!=null);return vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length):null;})();
     const mAnn=moyAnnuelle!=null?MENTION(moyAnnuelle,bareme):{t:"—",c:"#94a3b8",bg:"#f8fafc"};
-    // rang annuel
     const classmates=data.eleves.filter(x=>x.classe_id===e.classe_id);
-    const rangAnn=classmates.map(x=>{const mp=periodes.map(p=>parseFloat(calcMoy(x.notes||{},data.matieres,p))).filter(v=>!isNaN(v));return{id:x.id,moy:mp.length?mp.reduce((a,b)=>a+b,0)/mp.length:0};}).sort((a,b)=>b.moy-a.moy).findIndex(x=>x.id===e.id)+1;
-    const entetesP=periodes.map(p=>`<th style="text-align:center">${p}</th>`).join("");
+    const rangAnn=classmates.map(x=>{const mp=pers.map(p=>parseFloat(calcMoy(x.notes||{},data.matieres,p))).filter(v=>!isNaN(v));return{id:x.id,moy:mp.length?mp.reduce((a,b)=>a+b,0)/mp.length:0};}).sort((a,b)=>b.moy-a.moy).findIndex(x=>x.id===e.id)+1;
+    const estAnnuel = pers.length===periodes.length;
+    const titreDoc = estAnnuel ? `Bulletin annuel — ${etab.annee||""}` : `Bulletin de notes — ${pers[pers.length-1]}`;
+    const entetesP=pers.map(p=>`<th style="text-align:center">${p}</th>`).join("");
     const lignes=data.matieres.map((mat,i)=>{
-      const cells=periodes.map(p=>{const note=e.notes?.[p]?.[mat.id];return`<td style="text-align:center;font-weight:700;color:${note!=null&&note!==""?"#0f172a":"#cbd5e1"}">${note!=null&&note!==""?note:"—"}</td>`;}).join("");
-      // moyenne de la matière sur l'année
-      const vals=periodes.map(p=>e.notes?.[p]?.[mat.id]).filter(n=>n!=null&&n!=="").map(parseFloat);
+      const cells=pers.map(p=>{const note=e.notes?.[p]?.[mat.id];return`<td style="text-align:center;font-weight:700;color:${note!=null&&note!==""?"#0f172a":"#cbd5e1"}">${note!=null&&note!==""?note:"—"}</td>`;}).join("");
+      const vals=pers.map(p=>e.notes?.[p]?.[mat.id]).filter(n=>n!=null&&n!=="").map(parseFloat);
       const moyMat=vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2):"—";
-      return`<tr style="background:${i%2===0?"#f8fafc":"#fff"}"><td>${mat.nom}</td><td style="text-align:center">×${mat.coefficient}</td>${cells}<td style="text-align:center;font-weight:900;color:#1a56db">${moyMat}</td></tr>`;
+      return`<tr style="background:${i%2===0?"#f8fafc":"#fff"}"><td>${mat.nom}</td><td style="text-align:center">×${mat.coefficient}</td>${cells}<td style="text-align:center;font-weight:900;color:${etab.theme_couleur||"#1a56db"}">${moyMat}</td></tr>`;
     }).join("");
-    const moyRow=`<tr style="background:#eff6ff;font-weight:800"><td colspan="2">Moyenne ${periodes.length>1?"de la période":""}</td>${moyP.map(v=>`<td style="text-align:center;color:${v!=null&&v>=bareme/2?"#059669":v!=null?"#dc2626":"#cbd5e1"}">${v!=null?v.toFixed(2):"—"}</td>`).join("")}<td style="text-align:center;color:#1a56db">${moyAnnuelle!=null?moyAnnuelle.toFixed(2):"—"}</td></tr>`;
-    return`${officialHeader(etab,{classe:cl?.nom,docTitle:`Bulletin annuel — ${etab.annee||""}`})}
+    const moyRow=`<tr style="background:#eff6ff;font-weight:800"><td colspan="2">Moyenne</td>${moyP.map(v=>`<td style="text-align:center;color:${v!=null&&v>=bareme/2?"#059669":v!=null?"#dc2626":"#cbd5e1"}">${v!=null?v.toFixed(2):"—"}</td>`).join("")}<td style="text-align:center;color:${etab.theme_couleur||"#1a56db"}">${moyAnnuelle!=null?moyAnnuelle.toFixed(2):"—"}</td></tr>`;
+    const labelMoyGen = estAnnuel ? "Moyenne annuelle" : "Moyenne cumulée";
+    return`${officialHeader(etab,{classe:cl?.nom,docTitle:titreDoc})}
     <div class="grid" style="grid-template-columns:1fr 1fr 1fr 1fr"><div><div style="font-size:10px;color:#666;text-transform:uppercase">Élève</div><b>${e.prenom} ${e.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Matricule</div><b style="font-family:monospace">${e.matricule}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Classe</div><b>${cl?.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Année</div><b>${etab.annee||""}</b></div></div>
     ${(e.pere||e.mere||e.tuteur)?`<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:-6px">${e.pere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Père</div><b>${e.pere}</b>${e.tel_pere?` <span style="color:#64748b;font-weight:400">(${e.tel_pere})</span>`:""}</div>`:""}${e.mere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Mère</div><b>${e.mere}</b>${e.tel_mere?` <span style="color:#64748b;font-weight:400">(${e.tel_mere})</span>`:""}</div>`:""}</div>`:""}
-    <table><tr><th>Matière</th><th>Coeff.</th>${entetesP}<th style="text-align:center">Moy. an.</th></tr>${lignes}${moyRow}</table>
-    <div class="result" style="background:${mAnn.bg};border:2px solid ${mAnn.c}40"><div class="stat"><div class="stat-val" style="color:${mAnn.c}">${moyAnnuelle!=null?moyAnnuelle.toFixed(2):"—"}</div><div class="stat-lbl">Moyenne annuelle /${bareme}</div></div><div class="stat"><div class="stat-val" style="color:${mAnn.c};font-size:18px">${mAnn.t}</div><div class="stat-lbl">Mention</div></div><div class="stat"><div class="stat-val">${rangAnn}/${classmates.length}</div><div class="stat-lbl">Rang annuel</div></div></div>
-    <div class="sign"><span>Le/La Directeur(trice) : ____________________</span><span>Cachet & Signature</span></div>
+    <table><tr><th>Matière</th><th>Coeff.</th>${entetesP}<th style="text-align:center">Moy.</th></tr>${lignes}${moyRow}</table>
+    <div class="result" style="background:${mAnn.bg};border:2px solid ${mAnn.c}40"><div class="stat"><div class="stat-val" style="color:${mAnn.c}">${moyAnnuelle!=null?moyAnnuelle.toFixed(2):"—"}</div><div class="stat-lbl">${labelMoyGen} /${bareme}</div></div><div class="stat"><div class="stat-val" style="color:${mAnn.c};font-size:18px">${mAnn.t}</div><div class="stat-lbl">Mention</div></div><div class="stat"><div class="stat-val">${rangAnn}/${classmates.length}</div><div class="stat-lbl">Rang</div></div></div>
+    <div class="sign" style="margin-top:40px"><span style="text-align:center">${etab.signataire_grade||"Le Directeur"}<br/>${etab.signataire_nom?`<b>${etab.signataire_nom}</b><br/>`:""}<span style="color:#94a3b8;font-size:11px">Signature & cachet</span></span><span style="text-align:center">L'Enseignant(e)<br/><br/><span style="color:#94a3b8;font-size:11px">Signature</span></span></div>
     <p style="text-align:center;font-size:10px;color:#cbd5e1;margin-top:16px">Généré par MonEcole · ${etab.email||""}</p>`;
   };
 
@@ -1642,7 +1648,7 @@ function Bulletins({data,etab}) {
     ${(e.pere||e.mere||e.tuteur)?`<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:-6px">${e.pere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Père</div><b>${e.pere}</b>${e.tel_pere?` <span style="color:#64748b;font-weight:400">(${e.tel_pere})</span>`:""}</div>`:""}${e.mere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Mère</div><b>${e.mere}</b>${e.tel_mere?` <span style="color:#64748b;font-weight:400">(${e.tel_mere})</span>`:""}</div>`:""}${e.tuteur?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Tuteur</div><b>${e.tuteur}</b>${e.telephone?` <span style="color:#64748b;font-weight:400">(${e.telephone})</span>`:""}</div>`:""}</div>`:""}
     <table><tr><th>Matière</th><th>Coeff.</th><th>Note /${bareme}</th><th>Points</th><th>Appréciation</th></tr>${lignes}</table>
     <div class="result" style="background:${m.bg};border:2px solid ${m.c}40"><div class="stat"><div class="stat-val" style="color:${m.c}">${moy}</div><div class="stat-lbl">Moyenne /${bareme}</div></div><div class="stat"><div class="stat-val" style="color:${m.c};font-size:18px">${m.t}</div><div class="stat-lbl">Mention</div></div><div class="stat"><div class="stat-val">${rang}/${classmates.length}</div><div class="stat-lbl">Rang</div></div></div>
-    <div class="sign"><span>Le/La Directeur(trice) : ____________________</span><span>Cachet & Signature</span></div>
+    <div class="sign" style="margin-top:40px"><span style="text-align:center">${etab.signataire_grade||"Le Directeur"}<br/>${etab.signataire_nom?`<b>${etab.signataire_nom}</b><br/>`:""}<span style="color:#94a3b8;font-size:11px">Signature & cachet</span></span><span style="text-align:center">L'Enseignant(e)<br/><br/><span style="color:#94a3b8;font-size:11px">Signature</span></span></div>
     <p style="text-align:center;font-size:10px;color:#cbd5e1;margin-top:16px">Généré par MonEcole · ${etab.email||""}</p>`;
   };
 
@@ -1661,27 +1667,15 @@ function Bulletins({data,etab}) {
             <option value="annuel">Bulletin annuel (toutes notes)</option>
           </select>
           {modeBul==="periode"&&<select value={periode} onChange={ev=>setPeriode(ev.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{periodes.map(p=><option key={p} value={p}>{p}</option>)}</select>}
-          <Btn ch="🖨️ Imprimer" v="primary" onClick={()=>printHTML(modeBul==="annuel"?bulletinAnnuelHTML(e):bulletinHTML(e,periode),`Bulletin ${e.prenom} ${e.nom}`)}/>
+          <Btn ch="🖨️ Imprimer" v="primary" onClick={()=>{const idx=periodes.indexOf(periode);const persCumul=periodes.slice(0,idx+1);printHTML(modeBul==="annuel"?bulletinAnnuelHTML(e):bulletinAnnuelHTML(e,persCumul),`Bulletin ${e.prenom} ${e.nom}`,{etab});}}/>
         </div>
         {modeBul==="annuel"?(
           <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}}>
             <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-title{text-align:center;margin-top:12px;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid #1a56db;border-radius:8px;padding:7px 0;background:#eff6ff}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{border:1px solid #d8dee9;padding:7px 9px;font-size:12px}th{background:#1a56db;color:#fff;font-weight:700}.grid{display:grid;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:14px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e)}}/>
           </div>
         ):(
-        <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:720,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0"}}>
-          <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-title{text-align:center;margin-top:12px;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid #1a56db;border-radius:8px;padding:7px 0;background:#eff6ff}</style>`+officialHeader(etab,{classe:cl?.nom,docTitle:`Bulletin — ${periode}`})}}/>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:18,background:"#f8fafc",borderRadius:11,padding:14}}>
-            {[["Élève",`${e.prenom} ${e.nom}`],["Matricule",e.matricule],["Classe",cl?.nom],["Année",etab.annee]].map(([k,v])=>(<div key={k}><div style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",marginBottom:2}}>{k}</div><div style={{fontWeight:700,fontSize:12,color:"#0f172a"}}>{v}</div></div>))}
-          </div>
-          <table style={{width:"100%",borderCollapse:"collapse",marginBottom:18}}>
-            <thead><tr style={{background:"#1a56db"}}>{["Matière","Coeff.",`Note /${bareme}`,"Points","Appréciation"].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"#fff"}}>{h}</th>)}</tr></thead>
-            <tbody>{data.matieres.map((mat,i)=>{const note=e.notes?.[periode]?.[mat.id];const app=note!=null&&note!==""?MENTION(note,bareme):{t:"Non noté",c:"#94a3b8",bg:"#f8fafc"};return(<tr key={mat.id} style={{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e2e8f0"}}><td style={{padding:"8px 12px",fontWeight:600,fontSize:12}}>{mat.nom}</td><td style={{padding:"8px 12px",fontSize:12,color:"#64748b"}}>×{mat.coefficient}</td><td style={{padding:"8px 12px",fontWeight:800,fontSize:15,color:app.c}}>{note!=null&&note!==""?note:"—"}</td><td style={{padding:"8px 12px",fontSize:12,color:"#475569"}}>{note!=null&&note!==""?(parseFloat(note)*mat.coefficient).toFixed(2):"—"}</td><td style={{padding:"8px 12px"}}><span style={{background:app.bg,color:app.c,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700}}>{app.t}</span></td></tr>);})}</tbody>
-          </table>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,background:m.bg,borderRadius:11,padding:16,border:`2px solid ${m.c}40`}}>
-            <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Moyenne</div><div style={{fontSize:26,fontWeight:900,color:m.c}}>{moy}<span style={{fontSize:12}}>/{bareme}</span></div></div>
-            <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Mention</div><div style={{fontSize:16,fontWeight:800,color:m.c}}>{m.t}</div></div>
-            <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Rang</div><div style={{fontSize:26,fontWeight:900,color:"#0f172a"}}>{rang}<span style={{fontSize:12}}>/{classmates.length}</span></div></div>
-          </div>
+        <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}}>
+          <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-title{text-align:center;margin:12px auto 0;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid ${etab.theme_couleur||"#1a56db"};border-radius:8px;padding:7px 18px;background:${(etab.theme_couleur||"#1a56db")}12;display:block;max-width:60%}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{border:1px solid #d8dee9;padding:7px 9px;font-size:12px}th{background:${etab.theme_couleur||"#1a56db"};color:#fff;font-weight:700}.grid{display:grid;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:14px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e,periodes.slice(0,periodes.indexOf(periode)+1))}}/>
         </div>
         )}
       </div>
@@ -1693,7 +1687,7 @@ function Bulletins({data,etab}) {
         <div style={{display:"flex",gap:8}}>
           <select value={periode} onChange={e=>setPeriode(e.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{periodes.map(p=><option key={p} value={p}>{p}</option>)}</select>
           <select value={filterCl} onChange={e=>setFilterCl(e.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}><option value="">Toutes classes</option>{data.classes.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</select>
-          <Btn ch="🖨️ Tout imprimer" v="warn" onClick={()=>{if(!filtered.length)return;const html=filtered.map((e,i)=>`${bulletinHTML(e,periode)}${i<filtered.length-1?'<div class="page-break"></div>':""}`).join("");printHTML(html,"Bulletins — "+periode);}}/>
+          <Btn ch="🖨️ Tout imprimer" v="warn" onClick={()=>{if(!filtered.length)return;const html=filtered.map((e,i)=>`${bulletinHTML(e,periode)}${i<filtered.length-1?'<div class="page-break"></div>':""}`).join("");printHTML(html,"Bulletins — "+periode,{etab});}}/>
         </div>
       }/>
       {data.eleves.length===0?<Card><Empty icon="📄" text="Aucun élève."/></Card>:(
@@ -1779,7 +1773,7 @@ function Paiements({data,ops,etab}) {
       <div class="recu-foot"><span>Comptable : ____________</span><span>Cachet & Signature</span></div>
     </div>`;
   };
-  const printRecu=(p)=>printHTML(recuHTML(p),`Reçu ${p.recu}`,{compact:true});
+  const printRecu=(p)=>printHTML(recuHTML(p),`Reçu ${p.recu}`,{compact:true,etab});
   // Texte récapitulatif pour WhatsApp / Mail
   const recuTexte=(p)=>{
     const el=data.eleves.find(e=>e.id===p.eleve_id);const cl=data.classes.find(c=>c.id===el?.classe_id);
@@ -1794,7 +1788,7 @@ function Paiements({data,ops,etab}) {
       `Date : ${p.date}\nMerci.`;
   };
   // Télécharger le reçu en PDF (via la fenêtre d'impression -> Enregistrer en PDF)
-  const pdfRecu=(p)=>printHTML(recuHTML(p),`Recu_${p.recu}`,{compact:true});
+  const pdfRecu=(p)=>printHTML(recuHTML(p),`Recu_${p.recu}`,{compact:true,etab});
   const waRecu=(p)=>{
     const el=data.eleves.find(e=>e.id===p.eleve_id);
     const tel=(el?.telephone||"").replace(/[^0-9]/g,"");
@@ -2228,6 +2222,8 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
     ministere:etab.ministere||"Ministère de l'Éducation Nationale et de l'Alphabétisation",ire:etab.ire||"",dpe:etab.dpe||"",dsee:etab.dsee||"",
     devise_mots:etab.devise_mots||{m1:"",c1:"#dc2626",m2:"",c2:"#d97706",m3:"",c3:"#059669"},
     langue:etab.langue||"fr",
+    theme_couleur:etab.theme_couleur||"#1a56db",theme_police:etab.theme_police||"'Segoe UI',Helvetica,Arial,sans-serif",theme_titre_centre:etab.theme_titre_centre!==false,
+    signataire_grade:etab.signataire_grade||"Le Directeur",signataire_nom:etab.signataire_nom||"",
     ar:etab.ar||{pays:"جمهورية غينيا",devise:"عمل · عدل · تضامن",ministere:"وزارة التعليم الوطني ومحو الأمية",ire:"",dpe:"",dsee:"",ecole:"",bulletin:"كشف الدرجات",recu:"وصل",classe:"القسم",eleve:"التلميذ",matricule:"رقم التسجيل",annee:"السنة الدراسية"},
     mode_paiement:etab.mode_paiement||"mensualite",nb_tranches:etab.nb_tranches||"3",mois_personnalises:etab.mois_personnalises||"",frais_annuel_defaut:etab.frais_annuel_defaut||"",
     mode_maternelle:etab.mode_maternelle||"note",
@@ -2342,6 +2338,42 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
         </div>}
       </Card>
       <Card s={{marginBottom:14}}>
+        <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:6}}>🎨 Thème des documents</div>
+        <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Personnalisez l'apparence des imprimés (bulletins, reçus, fiches).</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <div>
+            <Lbl t="Couleur principale">
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <input type="color" value={form.theme_couleur} onChange={set("theme_couleur")} style={{width:42,height:38,border:"none",borderRadius:8,cursor:"pointer",background:"none",padding:0}}/>
+                <input value={form.theme_couleur} onChange={set("theme_couleur")} style={{...iSt(),width:110,fontFamily:"monospace"}}/>
+              </div>
+            </Lbl>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
+              {["#1a56db","#059669","#dc2626","#7c3aed","#d97706","#0891b2","#be123c","#0f172a"].map(c=>(
+                <button key={c} onClick={()=>setForm(f=>({...f,theme_couleur:c}))} style={{width:26,height:26,borderRadius:7,background:c,border:form.theme_couleur===c?"3px solid #0f172a":"1px solid #e2e8f0",cursor:"pointer"}}/>
+              ))}
+            </div>
+          </div>
+          <div>
+            <Slt label="Police des documents" value={form.theme_police} onChange={set("theme_police")} opts={[
+              {v:"'Segoe UI',Helvetica,Arial,sans-serif",l:"Moderne (Segoe UI)"},
+              {v:"Georgia,'Times New Roman',serif",l:"Classique (Georgia)"},
+              {v:"'Times New Roman',Times,serif",l:"Times New Roman"},
+              {v:"'Courier New',monospace",l:"Machine à écrire"},
+              {v:"Arial,Helvetica,sans-serif",l:"Arial"}
+            ]}/>
+            <label style={{display:"flex",alignItems:"center",gap:9,marginTop:12,cursor:"pointer",fontSize:13,color:"#334155",fontWeight:600}}>
+              <input type="checkbox" checked={form.theme_titre_centre} onChange={e=>setForm(f=>({...f,theme_titre_centre:e.target.checked}))} style={{width:17,height:17}}/>
+              Centrer le titre du document
+            </label>
+          </div>
+        </div>
+        <div style={{marginTop:14,padding:14,borderRadius:11,border:`2px solid ${form.theme_couleur}`,background:form.theme_couleur+"10",fontFamily:form.theme_police}}>
+          <div style={{textAlign:"center",fontWeight:800,fontSize:13,color:form.theme_couleur,textTransform:"uppercase"}}>Aperçu du thème</div>
+          <div style={{textAlign:form.theme_titre_centre?"center":"left",marginTop:8}}><span style={{display:"inline-block",border:`2px solid ${form.theme_couleur}`,borderRadius:8,padding:"5px 14px",fontWeight:800,fontSize:12,color:"#0f172a",background:"#fff"}}>BULLETIN DE NOTES</span></div>
+        </div>
+      </Card>
+      <Card s={{marginBottom:14}}>
         <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>🏛️ En-tête officiel des documents</div>
         <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Ces informations apparaîtront en haut de tous les imprimés (bulletins, reçus, fiches).</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
@@ -2363,6 +2395,8 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
           <Inp label="IRE (Inspection Régionale)" value={form.ire} onChange={set("ire")} placeholder="IRE de ..."/>
           <Inp label="DPE (Direction Préfectorale)" value={form.dpe} onChange={set("dpe")} placeholder="DPE de ..."/>
           <div style={{gridColumn:"1/-1"}}><Inp label="DSEE (Direction Sous-préfectorale)" value={form.dsee} onChange={set("dsee")} placeholder="DSEE de ..."/></div>
+          <Slt label="Grade du signataire" value={form.signataire_grade} onChange={set("signataire_grade")} opts={["Le Directeur","La Directrice","Le Proviseur","La Proviseure","Le Principal","La Principale","Le Chef d'établissement"]}/>
+          <Inp label="Nom du signataire (pré-rempli sur le bulletin)" value={form.signataire_nom} onChange={set("signataire_nom")} placeholder="Ex: M. Mamadou Sidibé"/>
         </div>
         <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid #f1f5f9"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
