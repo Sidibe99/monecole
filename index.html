@@ -196,13 +196,54 @@ const officialHeader = (etab={}, opts={}) => {
   const dsee = etab.dsee || "";
   const classe = opts.classe || "";
   const docTitle = opts.docTitle || "";
+  const dm=etab.devise_mots||{};
+  const deviseColoree=(dm.m1||dm.m2||dm.m3)?
+    [["m1","c1"],["m2","c2"],["m3","c3"]].filter(p=>dm[p[0]]).map((p,i,arr)=>`<span style="color:${dm[p[1]]||"#334155"};font-weight:700">${dm[p[0]]}</span>${i<arr.length-1?'<span style="color:#94a3b8"> · </span>':""}`).join("")
+    :null;
   const lignes = Array.isArray(etab.entete_lignes)?etab.entete_lignes:[];
   const lignesHTML = lignes.filter(l=>l&&l.texte).map(l=>`<div style="text-align:${l.pos||"center"};font-weight:${l.gras?"700":"400"};font-size:11px;color:#334155">${l.texte}</div>`).join("");
+  const bil = etab.langue==="fr_ar";
+  const ar = etab.ar||{};
+  // En-tête bilingue : pays FR à gauche, AR à droite ; idem ministère
+  if(bil){
+    return `<div class="oh">
+      ${etab.logo?`<div style="text-align:center;margin-bottom:6px"><img src="${etab.logo}" style="max-height:62px;max-width:130px;object-fit:contain"/></div>`:""}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a56db;padding-bottom:6px">
+        <div style="text-align:left;flex:1">
+          <div style="font-weight:800;font-size:13px">${pays}</div>
+          <div style="font-size:10px;font-style:italic;color:#475569">${deviseColoree||deviseNat}</div>
+        </div>
+        <div style="text-align:right;flex:1;direction:rtl;font-family:'Traditional Arabic','Amiri',serif">
+          <div style="font-weight:800;font-size:14px">${ar.pays||""}</div>
+          <div style="font-size:11px;color:#475569">${ar.devise||""}</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px">
+        <div style="text-align:left;flex:1">
+          <div>${ministere}</div>
+          ${ire?`<div><b>IRE :</b> ${ire}</div>`:""}
+          ${dpe?`<div><b>DPE :</b> ${dpe}</div>`:""}
+          ${dsee?`<div><b>DSEE :</b> ${dsee}</div>`:""}
+          <div><b>École :</b> ${etab.nom||""}</div>
+          ${classe?`<div><b>Classe :</b> ${classe}</div>`:""}
+        </div>
+        <div style="text-align:right;flex:1;direction:rtl;font-family:'Traditional Arabic','Amiri',serif;font-size:12px">
+          <div>${ar.ministere||""}</div>
+          ${ar.ire?`<div>${ar.ire}</div>`:""}
+          ${ar.dpe?`<div>${ar.dpe}</div>`:""}
+          ${ar.dsee?`<div>${ar.dsee}</div>`:""}
+          ${ar.ecole?`<div>${ar.ecole}</div>`:""}
+        </div>
+      </div>
+      ${lignesHTML?`<div style="margin-top:6px">${lignesHTML}</div>`:""}
+      ${docTitle?`<div class="oh-title" style="display:flex;justify-content:space-between"><span>${docTitle}</span><span style="direction:rtl;font-family:'Traditional Arabic','Amiri',serif">${opts.docTitleAr||""}</span></div>`:""}
+    </div>`;
+  }
   return `<div class="oh">
     ${etab.logo?`<div style="text-align:center;margin-bottom:6px"><img src="${etab.logo}" style="max-height:62px;max-width:130px;object-fit:contain"/></div>`:""}
     <div class="oh-top">
       <div class="oh-pays">${pays}</div>
-      <div class="oh-devise">${deviseNat}</div>
+      <div class="oh-devise">${deviseColoree||deviseNat}</div>
     </div>
     <div class="oh-body">
       <div class="oh-left">
@@ -597,7 +638,23 @@ function useSupabaseData(etablissementId) {
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
-function Dashboard({data,etab,setPage}) {
+function Dashboard({data,etab,setPage,currentUser}) {
+  const [now,setNow]=useState(new Date());
+  useEffect(()=>{const t=setInterval(()=>setNow(new Date()),1000);return ()=>clearInterval(t);},[]);
+  const JOURS_FR=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+  const MOIS_FR=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+  const jourNom=JOURS_FR[now.getDay()];
+  const dateStr=`${jourNom} ${now.getDate()} ${MOIS_FR[now.getMonth()]} ${now.getFullYear()}`;
+  const heureStr=now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const isProf=currentUser?.role==="Professeur";
+  const autorisees=Array.isArray(currentUser?.matieres_autorisees)?currentUser.matieres_autorisees:[];
+  const coursDuJour=(data.emploi_temps||[])
+    .filter(c=>c.jour===jourNom)
+    .filter(c=>!isProf||autorisees.includes(c.matiere_id))
+    .sort((a,b)=>(a.debut||"").localeCompare(b.debut||""));
+  const matNom=id=>data.matieres.find(m=>m.id===id)?.nom||"—";
+  const classeNom=id=>data.classes.find(c=>c.id===id)?.nom||"—";
+  const profNom=id=>{const p=data.professeurs?.find(x=>x.id===id);return p?`${p.prenom} ${p.nom}`:"";};
   const devise=etab.devise||"GNF";
   const periodes=periodesList(etab.systeme);
   const lastP=periodes[periodes.length-1];
@@ -628,7 +685,33 @@ function Dashboard({data,etab,setPage}) {
   const cycleInfo=[{cyc:"Maternelle",emoji:"🟨",c:"#eab308",bg:"#fefce8"},{cyc:"Primaire",emoji:"🟦",c:"#3b82f6",bg:"#eff6ff"},{cyc:"Collège",emoji:"🟪",c:"#8b5cf6",bg:"#f5f3ff"},{cyc:"Lycée",emoji:"🟩",c:"#10b981",bg:"#ecfdf5"}];
   return(
     <div>
-      <SHdr title="Tableau de bord 📊" sub={`${etab.annee||""} · ${etab.systeme==="semestre"?"Semestriel":"Trimestriel"} · Données en temps réel`}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:12}}>
+        <div><h2 style={{margin:0,fontSize:22,fontWeight:800,color:"#0f172a",fontFamily:"'Sora',sans-serif",letterSpacing:-0.5}}>Tableau de bord 📊</h2><p style={{margin:"5px 0 0",color:"#64748b",fontSize:13}}>{etab.annee||""} · {etab.systeme==="semestre"?"Semestriel":"Trimestriel"} · Temps réel</p></div>
+        <div style={{background:"linear-gradient(135deg,#0f172a,#1a56db)",borderRadius:15,padding:"12px 20px",color:"#fff",textAlign:"right",boxShadow:"0 8px 22px -8px rgba(26,86,219,.6)"}}>
+          <div style={{fontSize:12,fontWeight:600,color:"rgba(255,255,255,0.75)",textTransform:"capitalize"}}>{dateStr}</div>
+          <div style={{fontSize:26,fontWeight:900,fontFamily:"'Sora',sans-serif",letterSpacing:1,lineHeight:1.1}}>{heureStr}</div>
+        </div>
+      </div>
+      {/* Emploi du temps du jour */}
+      <Card s={{marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontWeight:800,fontSize:14,color:"#0f172a",fontFamily:"'Sora',sans-serif"}}>🗓️ Cours du jour — {jourNom}</div>
+          <span style={{fontSize:11,color:"#94a3b8",fontWeight:600}}>{coursDuJour.length} cours{isProf?" (mes matières)":""}</span>
+        </div>
+        {coursDuJour.length===0?<div style={{fontSize:12,color:"#94a3b8",textAlign:"center",padding:"14px 0"}}>{jourNom==="Dimanche"?"Repos dominical 😌":"Aucun cours programmé aujourd'hui."}</div>:(
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            {coursDuJour.map(c=>(
+              <div key={c.id} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 13px",background:"#f8fafc",borderRadius:10,borderLeft:"3px solid #1a56db"}}>
+                <div style={{fontSize:12,fontWeight:800,color:"#1a56db",minWidth:95}}>{c.debut} - {c.fin}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{matNom(c.matiere_id)} <span style={{fontWeight:600,color:"#94a3b8"}}>· {classeNom(c.classe_id)}</span></div>
+                  <div style={{fontSize:11,color:"#64748b"}}>{profNom(c.prof_id)?`👨‍🏫 ${profNom(c.prof_id)}`:""}{c.salle?`${profNom(c.prof_id)?" · ":""}📍 ${c.salle}`:""}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
       {/* Répartition garçons / filles */}
       {(totG+totF)>0&&<div style={{display:"flex",gap:13,marginBottom:14,flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:150,background:"linear-gradient(135deg,#eff6ff,#fff)",borderRadius:16,padding:"16px 20px",border:"1px solid #3b82f622"}}>
@@ -1272,7 +1355,7 @@ function FicheNotes({data,ops,etab,onEtabUpdate}) {
 
 function Eleves({data,ops,etab}) {
   const [modal,setModal]=useState(null);const [search,setSearch]=useState("");const [filterCl,setFilterCl]=useState("");
-  const [form,setForm]=useState({nom:"",prenom:"",genre:"",classe_id:"",date_naissance:"",lieu_naissance:"",tuteur:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});
+  const [form,setForm]=useState({nom:"",prenom:"",genre:"",classe_id:"",date_naissance:"",lieu_naissance:"",tuteur:"",pere:"",tel_pere:"",mere:"",tel_mere:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});
   const [loading,setLoading]=useState(false);const [err,setErr]=useState("");
   const save=async()=>{
     if(!form.nom||!form.prenom)return;
@@ -1302,7 +1385,7 @@ function Eleves({data,ops,etab}) {
       <SHdr title="Élèves 👨‍🎓" sub={`${data.eleves.length} élève(s) au total`} action={
         <div style={{display:"flex",gap:8}}>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..." style={{padding:"8px 12px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",width:170}}/>
-          <Btn ch="+ Inscrire" v="primary" onClick={()=>{setErr("");setForm({nom:"",prenom:"",genre:"",classe_id:classesCycle[0]?.id||data.classes[0]?.id||"",date_naissance:"",lieu_naissance:"",tuteur:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});setModal("add");}}/>
+          <Btn ch="+ Inscrire" v="primary" onClick={()=>{setErr("");setForm({nom:"",prenom:"",genre:"",classe_id:classesCycle[0]?.id||data.classes[0]?.id||"",date_naissance:"",lieu_naissance:"",tuteur:"",pere:"",tel_pere:"",mere:"",tel_mere:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});setModal("add");}}/>
         </div>
       }/>
       <div style={{display:"flex",gap:8,marginBottom:18}}>
@@ -1337,7 +1420,7 @@ function Eleves({data,ops,etab}) {
                         </div></td>
                         <td style={{padding:"10px 6px",fontFamily:"monospace",fontSize:12,color:"#64748b"}}>{e.matricule}</td>
                         <td style={{padding:"10px 18px",textAlign:"right"}}><div style={{display:"inline-flex",gap:6}}>
-                          <button onClick={()=>{setErr("");setForm({nom:e.nom,prenom:e.prenom,genre:e.genre||"",classe_id:e.classe_id,date_naissance:e.date_naissance||"",lieu_naissance:e.lieu_naissance||"",tuteur:e.tuteur||"",telephone:e.telephone||"",frais_annuel:e.frais_annuel??"",frais_inscription_eleve:e.frais_inscription_eleve??"",inscPayee:false});setModal(e.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
+                          <button onClick={()=>{setErr("");setForm({nom:e.nom,prenom:e.prenom,genre:e.genre||"",classe_id:e.classe_id,date_naissance:e.date_naissance||"",lieu_naissance:e.lieu_naissance||"",tuteur:e.tuteur||"",pere:e.pere||"",tel_pere:e.tel_pere||"",mere:e.mere||"",tel_mere:e.tel_mere||"",telephone:e.telephone||"",frais_annuel:e.frais_annuel??"",frais_inscription_eleve:e.frais_inscription_eleve??"",inscPayee:false});setModal(e.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
                           <button onClick={()=>ops.deleteEleve(e.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>
                         </div></td>
                       </tr>
@@ -1357,8 +1440,12 @@ function Eleves({data,ops,etab}) {
           <Inp label="Lieu naissance" value={form.lieu_naissance} onChange={e=>setForm(f=>({...f,lieu_naissance:e.target.value}))}/>
           <Slt label="Genre" value={form.genre} onChange={e=>setForm(f=>({...f,genre:e.target.value}))} opts={[{v:"",l:"— Choisir —"},{v:"M",l:"Masculin"},{v:"F",l:"Féminin"}]}/>
           <div style={{gridColumn:"1/-1"}}><Slt label="Classe *" value={form.classe_id} onChange={e=>setForm(f=>({...f,classe_id:e.target.value}))} opts={data.classes.map(c=>({v:c.id,l:c.nom}))}/></div>
+          <Inp label="Père" value={form.pere} onChange={e=>setForm(f=>({...f,pere:e.target.value}))} placeholder="Nom du père"/>
+          <Inp label="Téléphone père" value={form.tel_pere} onChange={e=>setForm(f=>({...f,tel_pere:e.target.value}))}/>
+          <Inp label="Mère" value={form.mere} onChange={e=>setForm(f=>({...f,mere:e.target.value}))} placeholder="Nom de la mère"/>
+          <Inp label="Téléphone mère" value={form.tel_mere} onChange={e=>setForm(f=>({...f,tel_mere:e.target.value}))}/>
           <Inp label="Tuteur/Parent" value={form.tuteur} onChange={e=>setForm(f=>({...f,tuteur:e.target.value}))}/>
-          <Inp label="Téléphone parent" value={form.telephone} onChange={e=>setForm(f=>({...f,telephone:e.target.value}))}/>
+          <Inp label="Téléphone parent/tuteur" value={form.telephone} onChange={e=>setForm(f=>({...f,telephone:e.target.value}))}/>
           <div style={{gridColumn:"1/-1"}}><Inp label={`Frais annuels scolarité (${etab.devise||"GNF"}) — vide = défaut école`} type="number" value={form.frais_annuel} onChange={e=>setForm(f=>({...f,frais_annuel:e.target.value}))} placeholder={etab.frais_annuel_defaut?`Défaut : ${etab.frais_annuel_defaut}`:"Bourse/réduction possible"}/></div>
           <div style={{gridColumn:"1/-1"}}><Inp label={`Frais d'inscription (${etab.devise||"GNF"}) — vide = défaut école`} type="number" value={form.frais_inscription_eleve} onChange={e=>setForm(f=>({...f,frais_inscription_eleve:e.target.value}))} placeholder={etab.fraisInscription?`Défaut : ${etab.fraisInscription}`:"Frais d'inscription"}/></div>
         </div>
@@ -1504,6 +1591,7 @@ function Bulletins({data,etab}) {
     return`${officialHeader(etab,{classe:cl?.nom,docTitle:`Bulletin de notes — ${p}`})}
     ${etab.devise_txt?`<p style="text-align:center;font-style:italic;color:#64748b;margin:0 0 10px">${etab.devise_txt}</p>`:""}
     <div class="grid" style="grid-template-columns:1fr 1fr 1fr 1fr"><div><div style="font-size:10px;color:#666;text-transform:uppercase">Élève</div><b>${e.prenom} ${e.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Matricule</div><b style="font-family:monospace">${e.matricule}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Classe</div><b>${cl?.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Année</div><b>${etab.annee||""}</b></div></div>
+    ${(e.pere||e.mere||e.tuteur)?`<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:-6px">${e.pere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Père</div><b>${e.pere}</b>${e.tel_pere?` <span style="color:#64748b;font-weight:400">(${e.tel_pere})</span>`:""}</div>`:""}${e.mere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Mère</div><b>${e.mere}</b>${e.tel_mere?` <span style="color:#64748b;font-weight:400">(${e.tel_mere})</span>`:""}</div>`:""}${e.tuteur?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Tuteur</div><b>${e.tuteur}</b>${e.telephone?` <span style="color:#64748b;font-weight:400">(${e.telephone})</span>`:""}</div>`:""}</div>`:""}
     <table><tr><th>Matière</th><th>Coeff.</th><th>Note /${bareme}</th><th>Points</th><th>Appréciation</th></tr>${lignes}</table>
     <div class="result" style="background:${m.bg};border:2px solid ${m.c}40"><div class="stat"><div class="stat-val" style="color:${m.c}">${moy}</div><div class="stat-lbl">Moyenne /${bareme}</div></div><div class="stat"><div class="stat-val" style="color:${m.c};font-size:18px">${m.t}</div><div class="stat-lbl">Mention</div></div><div class="stat"><div class="stat-val">${rang}/${classmates.length}</div><div class="stat-lbl">Rang</div></div></div>
     <div class="sign"><span>Le/La Directeur(trice) : ____________________</span><span>Cachet & Signature</span></div>
@@ -2085,6 +2173,9 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
     codeMEN:etab.codeMEN||"",prefixe:etab.prefixe||"",fraisInscription:etab.fraisInscription||"",mensualite:etab.mensualite||"",
     pays:etab.pays||"République de Guinée",devise_nationale:etab.devise_nationale||"Travail · Justice · Solidarité",
     ministere:etab.ministere||"Ministère de l'Éducation Nationale et de l'Alphabétisation",ire:etab.ire||"",dpe:etab.dpe||"",dsee:etab.dsee||"",
+    devise_mots:etab.devise_mots||{m1:"",c1:"#dc2626",m2:"",c2:"#d97706",m3:"",c3:"#059669"},
+    langue:etab.langue||"fr",
+    ar:etab.ar||{pays:"جمهورية غينيا",devise:"عمل · عدل · تضامن",ministere:"وزارة التعليم الوطني ومحو الأمية",ire:"",dpe:"",dsee:"",ecole:"",bulletin:"كشف الدرجات",recu:"وصل",classe:"القسم",eleve:"التلميذ",matricule:"رقم التسجيل",annee:"السنة الدراسية"},
     mode_paiement:etab.mode_paiement||"mensualite",nb_tranches:etab.nb_tranches||"3",mois_personnalises:etab.mois_personnalises||"",frais_annuel_defaut:etab.frais_annuel_defaut||"",
     mode_maternelle:etab.mode_maternelle||"note",
     entete_lignes:Array.isArray(etab.entete_lignes)?etab.entete_lignes:[],
@@ -2148,11 +2239,36 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
         </div>
       </Card>
       <Card s={{marginBottom:14}}>
+        <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:6}}>🌍 Langue des documents</div>
+        <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Choisissez la langue des imprimés. En mode Franco-arabe, l'en-tête affiche le français à gauche et l'arabe à droite.</div>
+        <Slt label="Langue" value={form.langue} onChange={set("langue")} opts={[{v:"fr",l:"Français uniquement"},{v:"fr_ar",l:"Franco-arabe (bilingue)"}]}/>
+        {form.langue==="fr_ar"&&<div style={{marginTop:14,background:"#f8fafc",borderRadius:11,padding:14}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:10}}>الترجمة العربية · Traductions arabes (modifiables)</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+            {[["pays","Pays (arabe)"],["devise","Devise (arabe)"],["ministere","Ministère (arabe)"],["ecole","École (arabe)"],["ire","IRE (arabe)"],["dpe","DPE (arabe)"],["dsee","DSEE (arabe)"],["bulletin","« Bulletin » (arabe)"]].map(([k,lbl])=>(
+              <div key={k}><Lbl t={lbl}><input dir="rtl" value={form.ar?.[k]||""} onChange={e=>setForm(f=>({...f,ar:{...f.ar,[k]:e.target.value}}))} style={{...iSt(),fontFamily:"'Traditional Arabic',serif",fontSize:15}}/></Lbl></div>
+            ))}
+          </div>
+        </div>}
+      </Card>
+      <Card s={{marginBottom:14}}>
         <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>🏛️ En-tête officiel des documents</div>
         <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Ces informations apparaîtront en haut de tous les imprimés (bulletins, reçus, fiches).</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
           <Inp label="Pays / République" value={form.pays} onChange={set("pays")} placeholder="République de Guinée"/>
-          <Inp label="Devise nationale" value={form.devise_nationale} onChange={set("devise_nationale")} placeholder="Travail · Justice · Solidarité"/>
+          <Inp label="Devise nationale (si non colorée ci-dessous)" value={form.devise_nationale} onChange={set("devise_nationale")} placeholder="Travail · Justice · Solidarité"/>
+          <div style={{gridColumn:"1/-1",background:"#f8fafc",borderRadius:11,padding:13}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:9}}>🎨 Devise colorée par mot (sous le pays, centrée). Laisser vide pour utiliser la devise simple ci-dessus.</div>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              {[["m1","c1","Mot 1"],["m2","c2","Mot 2"],["m3","c3","Mot 3"]].map(([mk,ck,lbl])=>(
+                <div key={mk} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:9,padding:"5px 8px"}}>
+                  <input value={form.devise_mots?.[mk]||""} onChange={e=>setForm(f=>({...f,devise_mots:{...f.devise_mots,[mk]:e.target.value}}))} placeholder={lbl} style={{border:"none",outline:"none",fontSize:13,fontWeight:700,width:95,fontFamily:"'Plus Jakarta Sans',sans-serif",color:form.devise_mots?.[ck]||"#334155"}}/>
+                  <input type="color" value={form.devise_mots?.[ck]||"#334155"} onChange={e=>setForm(f=>({...f,devise_mots:{...f.devise_mots,[ck]:e.target.value}}))} style={{width:28,height:28,border:"none",borderRadius:6,cursor:"pointer",background:"none",padding:0}}/>
+                </div>
+              ))}
+            </div>
+            {(form.devise_mots?.m1||form.devise_mots?.m2||form.devise_mots?.m3)&&<div style={{marginTop:10,textAlign:"center",fontSize:13}}>Aperçu : {[["m1","c1"],["m2","c2"],["m3","c3"]].filter(p=>form.devise_mots?.[p[0]]).map((p,i,arr)=><span key={p[0]}><span style={{color:form.devise_mots[p[1]],fontWeight:700}}>{form.devise_mots[p[0]]}</span>{i<arr.length-1?<span style={{color:"#94a3b8"}}> · </span>:null}</span>)}</div>}
+          </div>
           <div style={{gridColumn:"1/-1"}}><Inp label="Ministère" value={form.ministere} onChange={set("ministere")} placeholder="Ministère de l'Éducation Nationale..."/></div>
           <Inp label="IRE (Inspection Régionale)" value={form.ire} onChange={set("ire")} placeholder="IRE de ..."/>
           <Inp label="DPE (Direction Préfectorale)" value={form.dpe} onChange={set("dpe")} placeholder="DPE de ..."/>
@@ -2377,7 +2493,7 @@ function App() {
   const safePage=allowed.includes(page)?page:"dashboard";
 
   const pages={
-    dashboard:<Dashboard data={data} etab={etab||{}} setPage={setPage}/>,
+    dashboard:<Dashboard data={data} etab={etab||{}} setPage={setPage} currentUser={currentUser}/>,
     classes:<Classes data={data} ops={ops} etab={etab||{}}/>,
     matieres:<Matieres data={data} ops={ops}/>,
     eleves:<Eleves data={data} ops={ops} etab={etab||{}}/>,
