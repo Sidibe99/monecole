@@ -184,7 +184,22 @@ const fraisInscEleve = (eleve={},etab={},classe=null) => {
   return parseFloat(etab.fraisInscription)||0;
 };
 
-// ── EN-TÊTE OFFICIEL ──────────────────────────────────────────────────────────
+const Sq = () => <div style={{width:14,height:14,borderRadius:3,background:"#1a56db",opacity:0.65}}/>;
+// ── DISPOSITION DES LOGOS SUR LES DOCUMENTS ──────────────────────────────────
+// dispositions : centre | gauche | droite | deux_cotes | centre_haut
+const logoImg = (src,h=62)=>`<img src="${src}" style="max-height:${h}px;max-width:130px;object-fit:contain"/>`;
+const logoBlock = (etab={}, opts={}) => {
+  const l1=etab.logo||"", l2=etab.logo2||"";
+  const disp=opts.dispo||etab.logo_disposition||"centre";
+  if(!l1&&!l2) return "";
+  if(disp==="gauche") return `<div style="text-align:left;margin-bottom:6px">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
+  if(disp==="droite") return `<div style="text-align:right;margin-bottom:6px">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
+  if(disp==="deux_cotes") return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div>${l1?logoImg(l1):""}</div><div>${l2?logoImg(l2):""}</div></div>`;
+  // centre (par défaut) et centre_haut : les deux logos centrés (centre_haut géré par l'ordre dans l'en-tête)
+  return `<div style="text-align:center;margin-bottom:6px;display:flex;gap:14px;justify-content:center;align-items:center">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
+};
+
+
 // Génère l'en-tête administratif officiel commun à tous les imprimés.
 // etab = établissement, opts = {classe, docTitle}
 const officialHeader = (etab={}, opts={}) => {
@@ -207,7 +222,7 @@ const officialHeader = (etab={}, opts={}) => {
   // En-tête bilingue : pays FR à gauche, AR à droite ; idem ministère
   if(bil){
     return `<div class="oh">
-      ${etab.logo?`<div style="text-align:center;margin-bottom:6px"><img src="${etab.logo}" style="max-height:62px;max-width:130px;object-fit:contain"/></div>`:""}
+      ${logoBlock(etab)}
       <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a56db;padding-bottom:6px">
         <div style="text-align:left;flex:1">
           <div style="font-weight:800;font-size:13px">${pays}</div>
@@ -239,12 +254,16 @@ const officialHeader = (etab={}, opts={}) => {
       ${docTitle?`<div class="oh-title" style="display:flex;justify-content:space-between"><span>${docTitle}</span><span style="direction:rtl;font-family:'Traditional Arabic','Amiri',serif">${opts.docTitleAr||""}</span></div>`:""}
     </div>`;
   }
+  const dispo=etab.logo_disposition||"centre";
+  const logoEnHaut = dispo!=="centre_haut" ? logoBlock(etab) : "";
+  const logoAuMilieu = dispo==="centre_haut" ? logoBlock(etab,{dispo:"centre"}) : "";
   return `<div class="oh">
-    ${etab.logo?`<div style="text-align:center;margin-bottom:6px"><img src="${etab.logo}" style="max-height:62px;max-width:130px;object-fit:contain"/></div>`:""}
+    ${logoEnHaut}
     <div class="oh-top">
       <div class="oh-pays">${pays}</div>
       <div class="oh-devise">${deviseColoree||deviseNat}</div>
     </div>
+    ${logoAuMilieu}
     <div class="oh-body">
       <div class="oh-left">
         <div>${ministere}</div>
@@ -2180,7 +2199,7 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
     mode_maternelle:etab.mode_maternelle||"note",
     entete_lignes:Array.isArray(etab.entete_lignes)?etab.entete_lignes:[],
     moyens_paiement:Array.isArray(etab.moyens_paiement)&&etab.moyens_paiement.length?etab.moyens_paiement:["Espèces","Orange Money","MoMo","Carte Visa","Chèque"],
-    logo:etab.logo||""
+    logo:etab.logo||"",logo2:etab.logo2||"",logo_disposition:etab.logo_disposition||"centre"
   });
   const [loading,setLoading]=useState(false);
   const [saved,setSaved]=useState(false);
@@ -2217,22 +2236,59 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
     <div>
       <SHdr title="Établissement ⚙️" sub="Infos officielles, en-tête des documents et réglages — modifiables à tout moment"/>
       <Card s={{marginBottom:14}}>
-        <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>🖼️ Logo de l'école</div>
-        <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Apparaît sur les bulletins, reçus, fiches et dans l'application. Téléversez une image ou collez un lien.</div>
-        <div style={{display:"flex",gap:18,alignItems:"flex-start",flexWrap:"wrap"}}>
-          <div style={{width:96,height:96,borderRadius:14,border:"2px dashed #cbd5e1",background:"#f8fafc",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}>
-            {form.logo?<img src={form.logo} alt="logo" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:<span style={{fontSize:30}}>🎓</span>}
+        <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>🖼️ Logos des documents</div>
+        <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Vous pouvez ajouter <b>deux images</b> : le logo de l'école et l'emblème/armoiries du pays. Puis choisissez leur disposition sur les imprimés.</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+          {/* Logo 1 : école */}
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:8}}>Logo de l'école</div>
+            <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+              <div style={{width:80,height:80,borderRadius:12,border:"2px dashed #cbd5e1",background:"#f8fafc",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}>
+                {form.logo?<img src={form.logo} alt="logo" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:<span style={{fontSize:26}}>🎓</span>}
+              </div>
+              <div style={{flex:1}}>
+                <label style={{display:"inline-block",padding:"7px 13px",background:"#1a56db",color:"#fff",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",marginBottom:7}}>📁 Téléverser
+                  <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;if(f.size>500000){alert("Image trop lourde (max 500 Ko).");return;}const r=new FileReader();r.onload=()=>setForm(ff=>({...ff,logo:r.result}));r.readAsDataURL(f);}}/>
+                </label>
+                <Inp label="Ou lien (URL)" value={form.logo?.startsWith("data:")?"":form.logo} onChange={set("logo")} placeholder="https://..."/>
+                {form.logo&&<button onClick={()=>setForm(f=>({...f,logo:""}))} style={{marginTop:5,background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:6,padding:"4px 9px",cursor:"pointer",fontSize:10,fontWeight:700}}>🗑️ Retirer</button>}
+              </div>
+            </div>
           </div>
-          <div style={{flex:1,minWidth:240}}>
-            <label style={{display:"inline-block",padding:"9px 16px",background:"#1a56db",color:"#fff",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10}}>
-              📁 Téléverser une image
-              <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;if(f.size>500000){alert("Image trop lourde (max 500 Ko). Compressez-la ou utilisez un lien.");return;}const r=new FileReader();r.onload=()=>setForm(ff=>({...ff,logo:r.result}));r.readAsDataURL(f);}}/>
-            </label>
-            <Inp label="Ou coller un lien (URL)" value={form.logo?.startsWith("data:")?"":form.logo} onChange={set("logo")} placeholder="https://..."/>
-            {form.logo&&<button onClick={()=>setForm(f=>({...f,logo:""}))} style={{marginTop:6,background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 11px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️ Retirer le logo</button>}
-            <div style={{fontSize:10,color:"#94a3b8",marginTop:8}}>💡 PNG/JPG, max 500 Ko. Un fond transparent (PNG) rend mieux.</div>
+          {/* Logo 2 : armoiries */}
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:8}}>Emblème / Armoiries du pays</div>
+            <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+              <div style={{width:80,height:80,borderRadius:12,border:"2px dashed #cbd5e1",background:"#f8fafc",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}>
+                {form.logo2?<img src={form.logo2} alt="armoiries" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:<span style={{fontSize:26}}>🛡️</span>}
+              </div>
+              <div style={{flex:1}}>
+                <label style={{display:"inline-block",padding:"7px 13px",background:"#1a56db",color:"#fff",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",marginBottom:7}}>📁 Téléverser
+                  <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;if(f.size>500000){alert("Image trop lourde (max 500 Ko).");return;}const r=new FileReader();r.onload=()=>setForm(ff=>({...ff,logo2:r.result}));r.readAsDataURL(f);}}/>
+                </label>
+                <Inp label="Ou lien (URL)" value={form.logo2?.startsWith("data:")?"":form.logo2} onChange={set("logo2")} placeholder="https://..."/>
+                {form.logo2&&<button onClick={()=>setForm(f=>({...f,logo2:""}))} style={{marginTop:5,background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:6,padding:"4px 9px",cursor:"pointer",fontSize:10,fontWeight:700}}>🗑️ Retirer</button>}
+              </div>
+            </div>
           </div>
         </div>
+        {/* Dispositions préconçues */}
+        <div style={{fontSize:12,fontWeight:700,color:"#334155",margin:"16px 0 9px"}}>📐 Disposition sur les documents (cliquez un aperçu)</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:10}}>
+          {[
+            {v:"centre",t:"Centré",mini:<div style={{display:"flex",justifyContent:"center",gap:3}}><Sq/><Sq/></div>},
+            {v:"gauche",t:"À gauche",mini:<div style={{display:"flex",justifyContent:"flex-start",gap:3}}><Sq/><Sq/></div>},
+            {v:"droite",t:"À droite",mini:<div style={{display:"flex",justifyContent:"flex-end",gap:3}}><Sq/><Sq/></div>},
+            {v:"deux_cotes",t:"Deux côtés",mini:<div style={{display:"flex",justifyContent:"space-between"}}><Sq/><Sq/></div>},
+            {v:"centre_haut",t:"Centré au-dessus IRE/DPE",mini:<div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><div style={{display:"flex",gap:3}}><Sq/><Sq/></div><div style={{width:"70%",height:3,background:"#cbd5e1",borderRadius:2}}/><div style={{width:"55%",height:3,background:"#e2e8f0",borderRadius:2}}/></div>},
+          ].map(d=>{const on=(form.logo_disposition||"centre")===d.v;return(
+            <button key={d.v} onClick={()=>setForm(f=>({...f,logo_disposition:d.v}))} style={{padding:"11px 9px",borderRadius:11,border:on?"2px solid #1a56db":"1.5px solid #e2e8f0",background:on?"#eff6ff":"#fff",cursor:"pointer",textAlign:"center",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+              <div style={{height:34,display:"flex",flexDirection:"column",justifyContent:"center",marginBottom:6}}>{d.mini}</div>
+              <div style={{fontSize:10.5,fontWeight:700,color:on?"#1a56db":"#64748b",lineHeight:1.2}}>{on?"✓ ":""}{d.t}</div>
+            </button>
+          );})}
+        </div>
+        <div style={{fontSize:10,color:"#94a3b8",marginTop:8}}>💡 Cette disposition s'applique à tous les documents. Vous pourrez l'ajuster ponctuellement à l'impression plus tard.</div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16,alignItems:"center"}}>
           {saved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>✓ Enregistré</span>}
           <Btn ch={loading?"Enregistrement...":"💾 Enregistrer"} v="success" onClick={save} disabled={loading}/>
