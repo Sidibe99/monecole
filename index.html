@@ -186,7 +186,8 @@ const fraisInscEleve = (eleve={},etab={},classe=null) => {
 
 const Sq = () => <div style={{width:14,height:14,borderRadius:3,background:"#1a56db",opacity:0.65}}/>;
 // ── DISPOSITION DES LOGOS SUR LES DOCUMENTS ──────────────────────────────────
-// dispositions : centre | gauche | droite | deux_cotes | centre_haut
+// logo_disposition (alignement horizontal) : centre | gauche | droite | deux_cotes
+// logo_position (vertical, géré dans officialHeader) : haut | sousdevise
 const logoImg = (src,h=62)=>`<img src="${src}" style="max-height:${h}px;max-width:130px;object-fit:contain"/>`;
 const logoBlock = (etab={}, opts={}) => {
   const l1=etab.logo||"", l2=etab.logo2||"";
@@ -195,7 +196,7 @@ const logoBlock = (etab={}, opts={}) => {
   if(disp==="gauche") return `<div style="text-align:left;margin-bottom:6px">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
   if(disp==="droite") return `<div style="text-align:right;margin-bottom:6px">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
   if(disp==="deux_cotes") return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div>${l1?logoImg(l1):""}</div><div>${l2?logoImg(l2):""}</div></div>`;
-  // centre (par défaut) et centre_haut : les deux logos centrés (centre_haut géré par l'ordre dans l'en-tête)
+  // centre (par défaut) : les deux logos centrés. L'ancienne valeur centre_haut retombe ici (= centre).
   return `<div style="text-align:center;margin-bottom:6px;display:flex;gap:14px;justify-content:center;align-items:center">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
 };
 
@@ -212,17 +213,31 @@ const officialHeader = (etab={}, opts={}) => {
   const classe = opts.classe || "";
   const docTitle = opts.docTitle || "";
   const dm=etab.devise_mots||{};
-  const deviseColoree=(dm.m1||dm.m2||dm.m3)?
-    [["m1","c1"],["m2","c2"],["m3","c3"]].filter(p=>dm[p[0]]).map((p,i,arr)=>`<span style="color:${dm[p[1]]||"#334155"};font-weight:700">${dm[p[0]]}</span>${i<arr.length-1?'<span style="color:#94a3b8"> · </span>':""}`).join("")
-    :null;
+  // Coloration de la devise : 3 modes. "drapeau" et "uni" colorent la devise nationale telle quelle ;
+  // "manuel" (ou absence de mode + m1/m2/m3 hérités) colore mot par mot.
+  const FLAG_GN=["#ce1126","#fcd116","#009460"]; // drapeau guinéen : rouge · jaune · vert
+  const splitDevise=t=>(t||"").split(/\s*[·\-–—|/]\s*/).map(s=>s.trim()).filter(Boolean);
+  const colSpan=(t,c)=>`<span style="color:${c};font-weight:700;font-style:normal">${t}</span>`;
+  const joinDevise=arr=>arr.map((s,i)=>`${s}${i<arr.length-1?'<span style="color:#94a3b8;font-weight:400;font-style:normal"> · </span>':""}`).join("");
+  let deviseColoree=null;
+  if(dm.mode==="drapeau"){
+    const mots=splitDevise(deviseNat);
+    if(mots.length) deviseColoree=joinDevise(mots.map((w,i)=>colSpan(w,FLAG_GN[i%FLAG_GN.length])));
+  } else if(dm.mode==="uni"){
+    if(deviseNat) deviseColoree=colSpan(deviseNat,dm.couleur||etab.theme_couleur||"#1a56db");
+  } else if(dm.m1||dm.m2||dm.m3){
+    deviseColoree=joinDevise([["m1","c1"],["m2","c2"],["m3","c3"]].filter(p=>dm[p[0]]).map(p=>colSpan(dm[p[0]],dm[p[1]]||"#334155")));
+  }
   const lignes = Array.isArray(etab.entete_lignes)?etab.entete_lignes:[];
   const lignesHTML = lignes.filter(l=>l&&l.texte).map(l=>`<div style="text-align:${l.pos||"center"};font-weight:${l.gras?"700":"400"};font-size:11px;color:#334155">${l.texte}</div>`).join("");
   const bil = etab.langue==="fr_ar";
   const ar = etab.ar||{};
   // En-tête bilingue : pays FR à gauche, AR à droite ; idem ministère
   if(bil){
+    const logoPosB = etab.logo_position || "sousdevise";
+    const lblocB = logoBlock(etab);
     return `<div class="oh">
-      ${logoBlock(etab)}
+      ${logoPosB==="haut"?lblocB:""}
       <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a56db;padding-bottom:6px">
         <div style="text-align:left;flex:1">
           <div style="font-weight:800;font-size:13px">${pays}</div>
@@ -233,6 +248,7 @@ const officialHeader = (etab={}, opts={}) => {
           <div style="font-size:11px;color:#475569">${ar.devise||""}</div>
         </div>
       </div>
+      ${logoPosB!=="haut"?lblocB:""}
       <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px">
         <div style="text-align:left;flex:1">
           <div><b>${ministere}</b></div>
@@ -254,16 +270,18 @@ const officialHeader = (etab={}, opts={}) => {
       ${docTitle?`<div class="oh-title" style="display:flex;justify-content:space-between"><span>${docTitle}</span><span style="direction:rtl;font-family:'Traditional Arabic','Amiri',serif">${opts.docTitleAr||""}</span></div>`:""}
     </div>`;
   }
-  const dispo=etab.logo_disposition||"centre";
-  const logoEnHaut = dispo!=="centre_haut" ? logoBlock(etab) : "";
-  const logoAuMilieu = dispo==="centre_haut" ? logoBlock(etab,{dispo:"centre"}) : "";
+  // Position verticale du logo : "haut" (au-dessus de la République) ou "sousdevise" (sous la devise — standard officiel, défaut)
+  const logoPos = etab.logo_position || "sousdevise";
+  const lbloc = logoBlock(etab); // l'alignement horizontal (centre/gauche/droite/deux côtés) vient de logo_disposition
+  const logoEnHaut = logoPos==="haut" ? lbloc : "";
+  const logoSousDevise = logoPos!=="haut" ? lbloc : "";
   return `<div class="oh">
     ${logoEnHaut}
     <div class="oh-top">
       <div class="oh-pays">${pays}</div>
       <div class="oh-devise">${deviseColoree||deviseNat}</div>
     </div>
-    ${logoAuMilieu}
+    ${logoSousDevise}
     <div class="oh-body">
       <div class="oh-left">
         <div><b>${ministere}</b></div>
@@ -2229,7 +2247,7 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
     mode_maternelle:etab.mode_maternelle||"note",
     entete_lignes:Array.isArray(etab.entete_lignes)?etab.entete_lignes:[],
     moyens_paiement:Array.isArray(etab.moyens_paiement)&&etab.moyens_paiement.length?etab.moyens_paiement:["Espèces","Orange Money","MoMo","Carte Visa","Chèque"],
-    logo:etab.logo||"",logo2:etab.logo2||"",logo_disposition:etab.logo_disposition||"centre"
+    logo:etab.logo||"",logo2:etab.logo2||"",logo_disposition:(etab.logo_disposition==="centre_haut"?"centre":etab.logo_disposition)||"centre",logo_position:etab.logo_position||"sousdevise"
   });
   const [loading,setLoading]=useState(false);
   const [saved,setSaved]=useState(false);
@@ -2262,6 +2280,20 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
   const setMoyen=(i,v)=>setForm(f=>{const m=[...(f.moyens_paiement||[])];m[i]=v;return{...f,moyens_paiement:m};});
   const delMoyen=i=>setForm(f=>({...f,moyens_paiement:(f.moyens_paiement||[]).filter((_,j)=>j!==i)}));
   const set=k=>e=>setForm(f=>({...f,[k]:e.target.value}));
+  // Aperçu live de la devise colorée (miroir de officialHeader)
+  const FLAG_GN=["#ce1126","#fcd116","#009460"]; // drapeau guinéen : rouge · jaune · vert
+  const dvMode = form.devise_mots?.mode || ((form.devise_mots?.m1||form.devise_mots?.m2||form.devise_mots?.m3)?"manuel":"");
+  const setDv=(k,v)=>setForm(f=>({...f,devise_mots:{...f.devise_mots,[k]:v}}));
+  const splitDv=t=>(t||"").split(/\s*[·\-–—|/]\s*/).map(s=>s.trim()).filter(Boolean);
+  const devisePreview=()=>{
+    const dm=form.devise_mots||{}, nat=form.devise_nationale||"";
+    const sep=<span style={{color:"#94a3b8",fontWeight:400,fontStyle:"normal"}}> · </span>;
+    const vide=<span style={{color:"#94a3b8",fontWeight:400,fontStyle:"normal"}}>Renseignez la devise nationale ci-dessus.</span>;
+    if(dvMode==="drapeau"){const mots=splitDv(nat);return mots.length?mots.map((w,i,a)=><span key={i}><span style={{color:FLAG_GN[i%3]}}>{w}</span>{i<a.length-1?sep:null}</span>):vide;}
+    if(dvMode==="uni"){return nat?<span style={{color:dm.couleur||form.theme_couleur||"#1a56db"}}>{nat}</span>:vide;}
+    if(dvMode==="manuel"){const ws=[["m1","c1"],["m2","c2"],["m3","c3"]].filter(p=>dm[p[0]]);return ws.length?ws.map((p,i,a)=><span key={p[0]}><span style={{color:dm[p[1]]||"#334155"}}>{dm[p[0]]}</span>{i<a.length-1?sep:null}</span>):<span style={{color:"#94a3b8",fontWeight:400,fontStyle:"normal"}}>Saisissez les mots ci-dessous.</span>;}
+    return <span style={{color:"#64748b"}}>{nat||"—"}</span>;
+  };
   return(
     <div>
       <SHdr title="Établissement ⚙️" sub="Infos officielles, en-tête des documents et réglages — modifiables à tout moment"/>
@@ -2310,7 +2342,6 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
             {v:"gauche",t:"À gauche",mini:<div style={{display:"flex",justifyContent:"flex-start",gap:3}}><Sq/><Sq/></div>},
             {v:"droite",t:"À droite",mini:<div style={{display:"flex",justifyContent:"flex-end",gap:3}}><Sq/><Sq/></div>},
             {v:"deux_cotes",t:"Deux côtés",mini:<div style={{display:"flex",justifyContent:"space-between"}}><Sq/><Sq/></div>},
-            {v:"centre_haut",t:"Centré au-dessus IRE/DPE",mini:<div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><div style={{display:"flex",gap:3}}><Sq/><Sq/></div><div style={{width:"70%",height:3,background:"#cbd5e1",borderRadius:2}}/><div style={{width:"55%",height:3,background:"#e2e8f0",borderRadius:2}}/></div>},
           ].map(d=>{const on=(form.logo_disposition||"centre")===d.v;return(
             <button key={d.v} onClick={()=>setForm(f=>({...f,logo_disposition:d.v}))} style={{padding:"11px 9px",borderRadius:11,border:on?"2px solid #1a56db":"1.5px solid #e2e8f0",background:on?"#eff6ff":"#fff",cursor:"pointer",textAlign:"center",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
               <div style={{height:34,display:"flex",flexDirection:"column",justifyContent:"center",marginBottom:6}}>{d.mini}</div>
@@ -2319,6 +2350,18 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
           );})}
         </div>
         <div style={{fontSize:10,color:"#94a3b8",marginTop:8}}>💡 Cette disposition s'applique à tous les documents. Vous pourrez l'ajuster ponctuellement à l'impression plus tard.</div>
+        <div style={{fontSize:12,fontWeight:700,color:"#334155",margin:"16px 0 9px"}}>↕️ Position verticale du logo</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {[
+            {v:"sousdevise",t:"Sous la devise",sub:"Standard officiel : République → emblème → Ministère"},
+            {v:"haut",t:"Au-dessus de la République",sub:"Logo tout en haut du document"}
+          ].map(o=>{const on=(form.logo_position||"sousdevise")===o.v;return(
+            <button key={o.v} onClick={()=>setForm(f=>({...f,logo_position:o.v}))} style={{padding:"11px 13px",borderRadius:11,border:on?"2px solid #1a56db":"1.5px solid #e2e8f0",background:on?"#eff6ff":"#fff",cursor:"pointer",textAlign:"left",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+              <div style={{fontSize:12,fontWeight:700,color:on?"#1a56db":"#334155"}}>{on?"✓ ":""}{o.t}</div>
+              <div style={{fontSize:10.5,color:"#94a3b8",marginTop:2}}>{o.sub}</div>
+            </button>
+          );})}
+        </div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16,alignItems:"center"}}>
           {saved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>✓ Enregistré</span>}
           <Btn ch={loading?"Enregistrement...":"💾 Enregistrer"} v="success" onClick={save} disabled={loading}/>
@@ -2378,18 +2421,32 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
         <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Ces informations apparaîtront en haut de tous les imprimés (bulletins, reçus, fiches).</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
           <Inp label="Pays / République" value={form.pays} onChange={set("pays")} placeholder="République de Guinée"/>
-          <Inp label="Devise nationale (si non colorée ci-dessous)" value={form.devise_nationale} onChange={set("devise_nationale")} placeholder="Travail · Justice · Solidarité"/>
+          <Inp label="Devise nationale" value={form.devise_nationale} onChange={set("devise_nationale")} placeholder="Travail · Justice · Solidarité"/>
           <div style={{gridColumn:"1/-1",background:"#f8fafc",borderRadius:11,padding:13}}>
-            <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:9}}>🎨 Devise colorée par mot (sous le pays, centrée). Laisser vide pour utiliser la devise simple ci-dessus.</div>
-            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:9}}>🎨 Couleur de la devise (affichée sous le pays, centrée)</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:11}}>
+              {[{v:"drapeau",l:"🇬🇳 Drapeau guinéen"},{v:"uni",l:"Une seule couleur"},{v:"manuel",l:"Mot par mot"},{v:"",l:"Sans couleur"}].map(o=>{const on=dvMode===o.v;return(
+                <button key={o.v||"none"} onClick={()=>setDv("mode",o.v)} style={{padding:"7px 12px",borderRadius:9,border:on?"2px solid #1a56db":"1.5px solid #e2e8f0",background:on?"#eff6ff":"#fff",color:on?"#1a56db":"#64748b",fontSize:11.5,fontWeight:700,cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{on?"✓ ":""}{o.l}</button>
+              );})}
+            </div>
+            {dvMode==="drapeau"&&<div style={{fontSize:11,color:"#64748b"}}>Votre devise nationale est colorée automatiquement en <b style={{color:"#ce1126"}}>rouge</b> · <b style={{color:"#caa000"}}>jaune</b> · <b style={{color:"#009460"}}>vert</b>. Séparez les mots par « · », « - » ou « / ».</div>}
+            {dvMode==="uni"&&<div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:12,color:"#334155",fontWeight:600}}>Couleur :</span>
+              <input type="color" value={form.devise_mots?.couleur||form.theme_couleur||"#1a56db"} onChange={e=>setDv("couleur",e.target.value)} style={{width:34,height:30,border:"none",borderRadius:7,cursor:"pointer",background:"none",padding:0}}/>
+              <input value={form.devise_mots?.couleur||""} onChange={e=>setDv("couleur",e.target.value)} placeholder={form.theme_couleur||"#1a56db"} style={{...iSt(),width:120,fontFamily:"monospace"}}/>
+            </div>}
+            {dvMode==="manuel"&&<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
               {[["m1","c1","Mot 1"],["m2","c2","Mot 2"],["m3","c3","Mot 3"]].map(([mk,ck,lbl])=>(
                 <div key={mk} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:9,padding:"5px 8px"}}>
-                  <input value={form.devise_mots?.[mk]||""} onChange={e=>setForm(f=>({...f,devise_mots:{...f.devise_mots,[mk]:e.target.value}}))} placeholder={lbl} style={{border:"none",outline:"none",fontSize:13,fontWeight:700,width:95,fontFamily:"'Plus Jakarta Sans',sans-serif",color:form.devise_mots?.[ck]||"#334155"}}/>
-                  <input type="color" value={form.devise_mots?.[ck]||"#334155"} onChange={e=>setForm(f=>({...f,devise_mots:{...f.devise_mots,[ck]:e.target.value}}))} style={{width:28,height:28,border:"none",borderRadius:6,cursor:"pointer",background:"none",padding:0}}/>
+                  <input value={form.devise_mots?.[mk]||""} onChange={e=>setDv(mk,e.target.value)} placeholder={lbl} style={{border:"none",outline:"none",fontSize:13,fontWeight:700,width:95,fontFamily:"'Plus Jakarta Sans',sans-serif",color:form.devise_mots?.[ck]||"#334155"}}/>
+                  <input type="color" value={form.devise_mots?.[ck]||"#334155"} onChange={e=>setDv(ck,e.target.value)} style={{width:28,height:28,border:"none",borderRadius:6,cursor:"pointer",background:"none",padding:0}}/>
                 </div>
               ))}
+            </div>}
+            <div style={{marginTop:12,paddingTop:10,borderTop:"1px solid #eef2f7",textAlign:"center"}}>
+              <div style={{fontSize:9.5,color:"#94a3b8",textTransform:"uppercase",fontWeight:700,letterSpacing:.4,marginBottom:4}}>Aperçu sur les documents</div>
+              <div style={{fontSize:14,fontWeight:700,fontStyle:"italic"}}>{devisePreview()}</div>
             </div>
-            {(form.devise_mots?.m1||form.devise_mots?.m2||form.devise_mots?.m3)&&<div style={{marginTop:10,textAlign:"center",fontSize:13}}>Aperçu : {[["m1","c1"],["m2","c2"],["m3","c3"]].filter(p=>form.devise_mots?.[p[0]]).map((p,i,arr)=><span key={p[0]}><span style={{color:form.devise_mots[p[1]],fontWeight:700}}>{form.devise_mots[p[0]]}</span>{i<arr.length-1?<span style={{color:"#94a3b8"}}> · </span>:null}</span>)}</div>}
           </div>
           <div style={{gridColumn:"1/-1"}}><Inp label="Ministère" value={form.ministere} onChange={set("ministere")} placeholder="Ministère de l'Éducation Nationale..."/></div>
           <Inp label="IRE (Inspection Régionale)" value={form.ire} onChange={set("ire")} placeholder="IRE de ..."/>
@@ -2589,7 +2646,7 @@ function EditorHub({onCreate}) {
   );
 }
 
-function App() {
+export default function App() {
   // Mode création (éditeur) seulement si l'URL contient #admin-create
   const adminMode = isAdminCreateMode();
   const [screen,setScreen]=useState(adminMode?"master":"login");
