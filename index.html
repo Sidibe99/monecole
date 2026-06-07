@@ -5,14 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MonEcole</title>
   <meta name="theme-color" content="#1a56db"/>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"/>
   <style>
+    :root{--brand:#1a56db;--brand2:#1e40af;--ink:#0f172a;--bg:#eef2f7;--gold:#d97706}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Plus Jakarta Sans',sans-serif;background:#f0f4f8}
-    ::-webkit-scrollbar{width:6px}
-    ::-webkit-scrollbar-track{background:#f1f5f9}
-    ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
-    #loading{display:flex;align-items:center;justify-content:center;height:100vh;font-size:18px;color:#1a56db;font-weight:700}
+    body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+    ::-webkit-scrollbar{width:8px;height:8px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+    ::-webkit-scrollbar-thumb:hover{background:#94a3b8;background-clip:padding-box}
+    #loading{display:flex;align-items:center;justify-content:center;height:100vh;font-size:16px;color:var(--brand);font-weight:700;letter-spacing:.3px}
+    @keyframes meFade{from{opacity:0}to{opacity:1}}
+    @keyframes meRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes mePop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+    @keyframes meSlide{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @keyframes meSpin{to{transform:rotate(360deg)}}
+    .me-page{animation:meRise .4s cubic-bezier(.16,1,.3,1)}
+    .me-card{transition:transform .2s cubic-bezier(.16,1,.3,1),box-shadow .2s ease,border-color .2s ease}
+    .me-card:hover{transform:translateY(-3px);box-shadow:0 12px 30px -8px rgba(15,23,42,.16)!important}
+    .me-btn{transition:transform .12s ease,box-shadow .2s ease,filter .2s ease}
+    .me-btn:hover{filter:brightness(1.06)}
+    .me-btn:active{transform:scale(.96)}
+    .me-nav{transition:background .15s ease,color .15s ease,padding-left .15s ease}
+    .me-modal-bg{animation:meFade .2s ease}
+    .me-modal{animation:meSlide .32s cubic-bezier(.16,1,.3,1)}
+    .me-row{transition:background .14s ease}
+    input,select,textarea,button{font-family:'Plus Jakarta Sans',sans-serif}
+    input:focus,select:focus,textarea:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px rgba(26,86,219,.12)!important}
   </style>
 </head>
 <body>
@@ -259,17 +278,17 @@ const Lbl = (props) => { const t=props.t, children=props.children, mb=props.mb==
 const Inp = ({label,...p}) => <Lbl t={label}><input style={iSt()} {...p}/></Lbl>;
 const Slt = ({label,opts,...p}) => <Lbl t={label}><select style={iSt()} {...p}>{opts.map(o=><option key={o.v??o} value={o.v??o}>{o.l??o}</option>)}</select></Lbl>;
 const Btn = ({ch,v="primary",onClick,disabled,full,s={}}) => {
-  const vs={primary:{background:"#1a56db",color:"#fff",border:"none"},success:{background:"#059669",color:"#fff",border:"none"},danger:{background:"#fee2e2",color:"#dc2626",border:"1px solid #fecaca"},ghost:{background:"#f1f5f9",color:"#475569",border:"1px solid #e2e8f0"},warn:{background:"#fef3c7",color:"#d97706",border:"1px solid #fde68a"}};
-  return <button disabled={disabled} onClick={onClick} style={{padding:"9px 18px",borderRadius:9,cursor:disabled?"not-allowed":"pointer",fontSize:12,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif",opacity:disabled?0.5:1,width:full?"100%":"auto",transition:"all 0.15s",...vs[v],...s}}>{ch}</button>;
+  const vs={primary:{background:"linear-gradient(135deg,#1a56db,#1e40af)",color:"#fff",border:"none",boxShadow:"0 2px 8px -2px rgba(26,86,219,.5)"},success:{background:"linear-gradient(135deg,#059669,#047857)",color:"#fff",border:"none",boxShadow:"0 2px 8px -2px rgba(5,150,105,.5)"},danger:{background:"#fee2e2",color:"#dc2626",border:"1px solid #fecaca"},ghost:{background:"#fff",color:"#475569",border:"1px solid #e2e8f0"},warn:{background:"#fef3c7",color:"#d97706",border:"1px solid #fde68a"}};
+  return <button className="me-btn" disabled={disabled} onClick={onClick} style={{padding:"9px 18px",borderRadius:10,cursor:disabled?"not-allowed":"pointer",fontSize:12,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif",opacity:disabled?0.5:1,width:full?"100%":"auto",...vs[v],...s}}>{ch}</button>;
 };
 const Badge = ({role}) => <span style={{background:(ROLE_CLR[role]||"#6b7280")+"20",color:ROLE_CLR[role]||"#6b7280",border:`1px solid ${ROLE_CLR[role]||"#6b7280"}35`,padding:"2px 9px",borderRadius:999,fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{role}</span>;
-const Card = ({children,s={}}) => <div style={{background:"#fff",borderRadius:14,padding:22,boxShadow:"0 1px 8px rgba(0,0,0,0.06)",border:"1px solid #f1f5f9",...s}}>{children}</div>;
+const Card = ({children,s={}}) => <div className="me-card" style={{background:"#fff",borderRadius:16,padding:22,boxShadow:"0 1px 3px rgba(15,23,42,.04),0 6px 18px -10px rgba(15,23,42,.12)",border:"1px solid #eef2f7",...s}}>{children}</div>;
 const Modal = ({title,onClose,children,w=520}) => (
-  <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.55)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(6px)",padding:16}} onClick={onClose}>
-    <div style={{background:"#fff",borderRadius:18,padding:28,width:w,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.22)"}} onClick={e=>e.stopPropagation()}>
+  <div className="me-modal-bg" style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(8px)",padding:16}} onClick={onClose}>
+    <div className="me-modal" style={{background:"#fff",borderRadius:20,padding:28,width:w,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 32px 70px rgba(15,23,42,0.28)"}} onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-        <h3 style={{margin:0,fontSize:16,fontWeight:800,color:"#0f172a"}}>{title}</h3>
-        <button onClick={onClose} style={{background:"#f1f5f9",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:14}}>✕</button>
+        <h3 style={{margin:0,fontSize:17,fontWeight:800,color:"#0f172a",fontFamily:"'Sora',sans-serif"}}>{title}</h3>
+        <button className="me-btn" onClick={onClose} style={{background:"#f1f5f9",border:"none",borderRadius:9,width:31,height:31,cursor:"pointer",fontSize:14}}>✕</button>
       </div>
       {children}
     </div>
@@ -277,14 +296,14 @@ const Modal = ({title,onClose,children,w=520}) => (
 );
 const SHdr = ({title,sub,action}) => (
   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22}}>
-    <div><h2 style={{margin:0,fontSize:20,fontWeight:800,color:"#0f172a"}}>{title}</h2>{sub&&<p style={{margin:"4px 0 0",color:"#64748b",fontSize:13}}>{sub}</p>}</div>
+    <div><h2 style={{margin:0,fontSize:22,fontWeight:800,color:"#0f172a",fontFamily:"'Sora',sans-serif",letterSpacing:-0.5}}>{title}</h2>{sub&&<p style={{margin:"5px 0 0",color:"#64748b",fontSize:13}}>{sub}</p>}</div>
     {action}
   </div>
 );
 const StatCard = ({icon,label,value,sub,color,onClick}) => (
-  <div onClick={onClick} style={{background:"#fff",borderRadius:14,padding:"18px 20px",boxShadow:"0 1px 8px rgba(0,0,0,0.06)",border:"1px solid #f1f5f9",display:"flex",alignItems:"center",gap:14,flex:1,minWidth:140,cursor:onClick?"pointer":"default"}}>
-    <div style={{width:46,height:46,borderRadius:12,background:color+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{icon}</div>
-    <div><div style={{fontSize:22,fontWeight:800,color:"#0f172a",lineHeight:1}}>{value}</div><div style={{fontSize:12,fontWeight:600,color:"#64748b",marginTop:3}}>{label}</div>{sub&&<div style={{fontSize:11,color,marginTop:2}}>{sub}</div>}</div>
+  <div className="me-card" onClick={onClick} style={{background:"#fff",borderRadius:16,padding:"18px 20px",boxShadow:"0 1px 3px rgba(15,23,42,.04),0 6px 18px -10px rgba(15,23,42,.12)",border:"1px solid #eef2f7",display:"flex",alignItems:"center",gap:14,flex:1,minWidth:140,cursor:onClick?"pointer":"default"}}>
+    <div style={{width:46,height:46,borderRadius:13,background:color+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{icon}</div>
+    <div><div style={{fontSize:23,fontWeight:800,color:"#0f172a",lineHeight:1,fontFamily:"'Sora',sans-serif"}}>{value}</div><div style={{fontSize:12,fontWeight:600,color:"#64748b",marginTop:3}}>{label}</div>{sub&&<div style={{fontSize:11,color,marginTop:2}}>{sub}</div>}</div>
   </div>
 );
 const Empty = ({icon,text}) => <div style={{textAlign:"center",padding:"60px 20px",color:"#94a3b8"}}><div style={{fontSize:44,marginBottom:12}}>{icon}</div><p style={{margin:0,fontSize:14}}>{text}</p></div>;
@@ -298,7 +317,7 @@ const Tbl = ({cols,rows,empty}) => (
     )}
   </div>
 );
-const TR = ({children,onClick}) => <tr onClick={onClick} style={{borderTop:"1px solid #f8fafc",cursor:onClick?"pointer":"default"}} onMouseOver={e=>{e.currentTarget.style.background="#f8fafc";}} onMouseOut={e=>{e.currentTarget.style.background="transparent";}}>{children}</tr>;
+const TR = ({children,onClick}) => <tr className="me-row" onClick={onClick} style={{borderTop:"1px solid #f4f7fb",cursor:onClick?"pointer":"default"}} onMouseOver={e=>{e.currentTarget.style.background="#f8fafc";}} onMouseOut={e=>{e.currentTarget.style.background="transparent";}}>{children}</tr>;
 const TD = ({children,mono,bold,s={}}) => <td style={{padding:"11px 15px",fontSize:13,color:bold?"#0f172a":"#475569",fontWeight:bold?700:400,fontFamily:mono?"monospace":"inherit",...s}}>{children}</td>;
 
 // ── TOAST NOTIFICATION ────────────────────────────────────────────────────────
@@ -2164,15 +2183,15 @@ function App() {
   };
 
   return(
-    <div style={{display:"flex",height:"100vh",fontFamily:"'Plus Jakarta Sans',sans-serif",background:"#f0f4f8"}}>
+    <div style={{display:"flex",height:"100vh",fontFamily:"'Plus Jakarta Sans',sans-serif",background:"linear-gradient(135deg,#eef2f7 0%,#e8eef6 100%)"}}>
       {toast&&<Toast msg={toast.msg} type={toast.type}/>}
-      <div style={{width:210,background:"#0f172a",display:"flex",flexDirection:"column",flexShrink:0}}>
+      <div style={{width:214,background:"linear-gradient(180deg,#0f172a 0%,#13203a 100%)",display:"flex",flexDirection:"column",flexShrink:0,boxShadow:"2px 0 18px rgba(15,23,42,.18)"}}>
         <div style={{padding:"18px 13px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
           <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:11}}>
-            <div style={{width:36,height:36,borderRadius:10,background:etab?.logo?"#fff":"#1a56db",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,overflow:"hidden",border:etab?.logo?"1px solid rgba(255,255,255,0.15)":"none"}}>{etab?.logo?<img src={etab.logo} alt="logo" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:"🎓"}</div>
-            <div><div style={{fontWeight:900,fontSize:15,color:"#fff",letterSpacing:-0.5}}>MonEcole</div></div>
+            <div style={{width:38,height:38,borderRadius:11,background:etab?.logo?"#fff":"linear-gradient(135deg,#1a56db,#1e40af)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,overflow:"hidden",border:etab?.logo?"1px solid rgba(255,255,255,0.15)":"none",boxShadow:"0 4px 12px -4px rgba(26,86,219,.6)"}}>{etab?.logo?<img src={etab.logo} alt="logo" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:"🎓"}</div>
+            <div><div style={{fontWeight:800,fontSize:16,color:"#fff",letterSpacing:-0.5,fontFamily:"'Sora',sans-serif"}}>MonEcole</div>{etab?.nom&&<div style={{fontSize:10,color:"rgba(255,255,255,0.55)",fontWeight:600,marginTop:1,lineHeight:1.2,maxWidth:135,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{etab.nom}</div>}</div>
           </div>
-          <div style={{padding:"9px 11px",background:"rgba(255,255,255,0.06)",borderRadius:9,border:"1px solid rgba(255,255,255,0.07)",marginBottom:8}}>
+          <div style={{padding:"9px 11px",background:"rgba(255,255,255,0.06)",borderRadius:11,border:"1px solid rgba(255,255,255,0.07)",marginBottom:8}}>
             <div style={{fontSize:10,color:"rgba(255,255,255,0.37)",marginBottom:1}}>Connecté</div>
             <div style={{fontSize:11,fontWeight:700,color:"#fff",marginBottom:3}}>{currentUser?.prenom} {currentUser?.nom}</div>
             <Badge role={currentUser?.role}/>
@@ -2181,19 +2200,18 @@ function App() {
         </div>
         <nav style={{flex:1,padding:"8px 6px",overflowY:"auto"}}>
           {NAV.map(n=>(
-            <button key={n.id} onClick={()=>setPage(n.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:8,border:"none",cursor:"pointer",textAlign:"left",marginBottom:1,background:page===n.id?"#1a56db":"transparent",color:page===n.id?"#fff":"rgba(255,255,255,0.46)",fontWeight:page===n.id?700:500,fontSize:11,fontFamily:"'Plus Jakarta Sans',sans-serif",transition:"all 0.12s"}}
-              onMouseOver={e=>{if(page!==n.id)e.currentTarget.style.background="rgba(255,255,255,0.05)";}}
-              onMouseOut={e=>{if(page!==n.id)e.currentTarget.style.background="transparent";}}>
-              <span style={{fontSize:14}}>{n.icon}</span>{n.l}
+            <button key={n.id} className="me-nav" onClick={()=>setPage(n.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"9px 11px",borderRadius:10,border:"none",cursor:"pointer",textAlign:"left",marginBottom:2,background:page===n.id?"linear-gradient(135deg,#1a56db,#1e40af)":"transparent",color:page===n.id?"#fff":"rgba(255,255,255,0.5)",fontWeight:page===n.id?700:500,fontSize:11.5,fontFamily:"'Plus Jakarta Sans',sans-serif",boxShadow:page===n.id?"0 4px 12px -4px rgba(26,86,219,.6)":"none"}}
+              onMouseOver={e=>{if(page!==n.id){e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color="rgba(255,255,255,0.8)";}}}
+              onMouseOut={e=>{if(page!==n.id){e.currentTarget.style.background="transparent";e.currentTarget.style.color="rgba(255,255,255,0.5)";}}}>
+              <span style={{fontSize:15}}>{n.icon}</span>{n.l}
             </button>
           ))}
         </nav>
         <div style={{padding:"10px 6px",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
-          <div style={{fontSize:9,color:"rgba(255,255,255,0.24)",textAlign:"center",marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{etab?.nom||"MonEcole"}</div>
-          <button onClick={()=>{setCurrentUser(null);setScreen("login");}} style={{width:"100%",background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:8,padding:"7px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🚪 Déconnexion</button>
+          <button className="me-btn" onClick={()=>{setCurrentUser(null);setScreen("login");}} style={{width:"100%",background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🚪 Déconnexion</button>
         </div>
       </div>
-      <div style={{flex:1,overflowY:"auto",padding:"26px 28px"}}>{pages[page]}</div>
+      <div style={{flex:1,overflowY:"auto",padding:"26px 28px"}}><div key={page} className="me-page">{pages[page]}</div></div>
     </div>
   );
 }
