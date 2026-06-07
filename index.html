@@ -2646,7 +2646,7 @@ function EditorHub({onCreate}) {
   );
 }
 
-export default function App() {
+function App() {
   // Mode création (éditeur) seulement si l'URL contient #admin-create
   const adminMode = isAdminCreateMode();
   const [screen,setScreen]=useState(adminMode?"master":"login");
