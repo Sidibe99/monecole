@@ -1597,8 +1597,37 @@ function Bulletins({data,etab}) {
   const periodes=periodesList(etab.systeme);
   const [selected,setSelected]=useState(null);
   const [periode,setPeriode]=useState(periodes[0]);
+  const [modeBul,setModeBul]=useState("periode"); // "periode" | "annuel"
   const [filterCl,setFilterCl]=useState("");
   const filtered=data.eleves.filter(e=>!filterCl||e.classe_id===parseInt(filterCl));
+
+  // Bulletin annuel : toutes les périodes côte à côte + moyennes + moyenne annuelle
+  const bulletinAnnuelHTML=(e)=>{
+    const cl=data.classes.find(c=>c.id===e.classe_id);
+    const bareme=baremeOf(cl?.niveau);
+    const moyP=periodes.map(p=>parseFloat(calcMoy(e.notes||{},data.matieres,p))).map(v=>isNaN(v)?null:v);
+    const moyAnnuelle=(()=>{const vals=moyP.filter(v=>v!=null);return vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length):null;})();
+    const mAnn=moyAnnuelle!=null?MENTION(moyAnnuelle,bareme):{t:"—",c:"#94a3b8",bg:"#f8fafc"};
+    // rang annuel
+    const classmates=data.eleves.filter(x=>x.classe_id===e.classe_id);
+    const rangAnn=classmates.map(x=>{const mp=periodes.map(p=>parseFloat(calcMoy(x.notes||{},data.matieres,p))).filter(v=>!isNaN(v));return{id:x.id,moy:mp.length?mp.reduce((a,b)=>a+b,0)/mp.length:0};}).sort((a,b)=>b.moy-a.moy).findIndex(x=>x.id===e.id)+1;
+    const entetesP=periodes.map(p=>`<th style="text-align:center">${p}</th>`).join("");
+    const lignes=data.matieres.map((mat,i)=>{
+      const cells=periodes.map(p=>{const note=e.notes?.[p]?.[mat.id];return`<td style="text-align:center;font-weight:700;color:${note!=null&&note!==""?"#0f172a":"#cbd5e1"}">${note!=null&&note!==""?note:"—"}</td>`;}).join("");
+      // moyenne de la matière sur l'année
+      const vals=periodes.map(p=>e.notes?.[p]?.[mat.id]).filter(n=>n!=null&&n!=="").map(parseFloat);
+      const moyMat=vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2):"—";
+      return`<tr style="background:${i%2===0?"#f8fafc":"#fff"}"><td>${mat.nom}</td><td style="text-align:center">×${mat.coefficient}</td>${cells}<td style="text-align:center;font-weight:900;color:#1a56db">${moyMat}</td></tr>`;
+    }).join("");
+    const moyRow=`<tr style="background:#eff6ff;font-weight:800"><td colspan="2">Moyenne ${periodes.length>1?"de la période":""}</td>${moyP.map(v=>`<td style="text-align:center;color:${v!=null&&v>=bareme/2?"#059669":v!=null?"#dc2626":"#cbd5e1"}">${v!=null?v.toFixed(2):"—"}</td>`).join("")}<td style="text-align:center;color:#1a56db">${moyAnnuelle!=null?moyAnnuelle.toFixed(2):"—"}</td></tr>`;
+    return`${officialHeader(etab,{classe:cl?.nom,docTitle:`Bulletin annuel — ${etab.annee||""}`})}
+    <div class="grid" style="grid-template-columns:1fr 1fr 1fr 1fr"><div><div style="font-size:10px;color:#666;text-transform:uppercase">Élève</div><b>${e.prenom} ${e.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Matricule</div><b style="font-family:monospace">${e.matricule}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Classe</div><b>${cl?.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Année</div><b>${etab.annee||""}</b></div></div>
+    ${(e.pere||e.mere||e.tuteur)?`<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:-6px">${e.pere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Père</div><b>${e.pere}</b>${e.tel_pere?` <span style="color:#64748b;font-weight:400">(${e.tel_pere})</span>`:""}</div>`:""}${e.mere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Mère</div><b>${e.mere}</b>${e.tel_mere?` <span style="color:#64748b;font-weight:400">(${e.tel_mere})</span>`:""}</div>`:""}</div>`:""}
+    <table><tr><th>Matière</th><th>Coeff.</th>${entetesP}<th style="text-align:center">Moy. an.</th></tr>${lignes}${moyRow}</table>
+    <div class="result" style="background:${mAnn.bg};border:2px solid ${mAnn.c}40"><div class="stat"><div class="stat-val" style="color:${mAnn.c}">${moyAnnuelle!=null?moyAnnuelle.toFixed(2):"—"}</div><div class="stat-lbl">Moyenne annuelle /${bareme}</div></div><div class="stat"><div class="stat-val" style="color:${mAnn.c};font-size:18px">${mAnn.t}</div><div class="stat-lbl">Mention</div></div><div class="stat"><div class="stat-val">${rangAnn}/${classmates.length}</div><div class="stat-lbl">Rang annuel</div></div></div>
+    <div class="sign"><span>Le/La Directeur(trice) : ____________________</span><span>Cachet & Signature</span></div>
+    <p style="text-align:center;font-size:10px;color:#cbd5e1;margin-top:16px">Généré par MonEcole · ${etab.email||""}</p>`;
+  };
 
   const bulletinHTML=(e,p)=>{
     const moy=calcMoy(e.notes||{},data.matieres,p);
@@ -1625,18 +1654,22 @@ function Bulletins({data,etab}) {
     const rang=classmates.map(x=>({id:x.id,moy:parseFloat(calcMoy(x.notes||{},data.matieres,periode))||0})).sort((a,b)=>b.moy-a.moy).findIndex(x=>x.id===e.id)+1;
     return(
       <div>
-        <div style={{display:"flex",gap:9,marginBottom:18,alignItems:"center"}}>
+        <div style={{display:"flex",gap:9,marginBottom:18,alignItems:"center",flexWrap:"wrap"}}>
           <Btn ch="← Retour" v="ghost" onClick={()=>setSelected(null)}/>
-          <select value={periode} onChange={ev=>setPeriode(ev.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{periodes.map(p=><option key={p} value={p}>{p}</option>)}</select>
-          <Btn ch="🖨️ Imprimer" v="primary" onClick={()=>printHTML(bulletinHTML(e,periode),`Bulletin ${e.prenom} ${e.nom}`)}/>
+          <select value={modeBul} onChange={ev=>setModeBul(ev.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700}}>
+            <option value="periode">Bulletin par période</option>
+            <option value="annuel">Bulletin annuel (toutes notes)</option>
+          </select>
+          {modeBul==="periode"&&<select value={periode} onChange={ev=>setPeriode(ev.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{periodes.map(p=><option key={p} value={p}>{p}</option>)}</select>}
+          <Btn ch="🖨️ Imprimer" v="primary" onClick={()=>printHTML(modeBul==="annuel"?bulletinAnnuelHTML(e):bulletinHTML(e,periode),`Bulletin ${e.prenom} ${e.nom}`)}/>
         </div>
-        <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:720,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0"}}>
-          <div style={{textAlign:"center",borderBottom:"3px solid #1a56db",paddingBottom:14,marginBottom:18}}>
-            <div style={{fontWeight:900,fontSize:18,color:"#0f172a"}}>{etab.nom}</div>
-            {etab.devise_txt&&<div style={{fontSize:12,color:"#64748b",fontStyle:"italic",marginTop:2}}>{etab.devise_txt}</div>}
-            <div style={{fontSize:11,color:"#94a3b8",marginTop:5}}>{etab.adresse} {etab.telephone&&`· ${etab.telephone}`}</div>
-            <div style={{marginTop:10,display:"inline-block",background:"#1a56db",color:"#fff",borderRadius:8,padding:"5px 16px",fontWeight:800,fontSize:12}}>BULLETIN — {periode.toUpperCase()} — {etab.annee}</div>
+        {modeBul==="annuel"?(
+          <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}}>
+            <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-title{text-align:center;margin-top:12px;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid #1a56db;border-radius:8px;padding:7px 0;background:#eff6ff}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{border:1px solid #d8dee9;padding:7px 9px;font-size:12px}th{background:#1a56db;color:#fff;font-weight:700}.grid{display:grid;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:14px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e)}}/>
           </div>
+        ):(
+        <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:720,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0"}}>
+          <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-title{text-align:center;margin-top:12px;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid #1a56db;border-radius:8px;padding:7px 0;background:#eff6ff}</style>`+officialHeader(etab,{classe:cl?.nom,docTitle:`Bulletin — ${periode}`})}}/>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:18,background:"#f8fafc",borderRadius:11,padding:14}}>
             {[["Élève",`${e.prenom} ${e.nom}`],["Matricule",e.matricule],["Classe",cl?.nom],["Année",etab.annee]].map(([k,v])=>(<div key={k}><div style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",marginBottom:2}}>{k}</div><div style={{fontWeight:700,fontSize:12,color:"#0f172a"}}>{v}</div></div>))}
           </div>
@@ -1650,6 +1683,7 @@ function Bulletins({data,etab}) {
             <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase"}}>Rang</div><div style={{fontSize:26,fontWeight:900,color:"#0f172a"}}>{rang}<span style={{fontSize:12}}>/{classmates.length}</span></div></div>
           </div>
         </div>
+        )}
       </div>
     );
   }
