@@ -193,6 +193,11 @@ const I18N = {
     cl_nom:"Nom de la classe *", cl_nom_ph:"Ex: 11ème S, 3ème A",
     cl_frais_an:"Frais scolarité/an", cl_frais_insc:"Frais inscription", cl_defaut:"Vide = défaut école",
     cl_effectif:"Effectif prévu",
+    cl_suivante:"Classe suivante (passage)", cl_aucune_suivante:"— Aucune (classe terminale) —",
+    cl_passage:"🎓 Passage de fin d'année", cl_passage_titre:"Passage de fin d'année",
+    cl_passage_intro:"Les élèves ayant atteint la moyenne passent à la classe suivante définie. Les autres restent (redoublants). Les notes ne sont pas effacées.",
+    cl_passage_aucune_def:"Aucune classe n'a de « classe suivante » définie. Modifiez vos classes pour indiquer leur classe suivante, puis revenez ici.",
+    cl_admis:"admis", cl_redoublants:"redoublant(s)", cl_sans_notes:"sans notes", cl_vers:"→", cl_promouvoir:"Promouvoir les admis", cl_total_promus:"élève(s) seront promus",
     ma_count:"matière(s)", ma_empty:"Aucune matière. Créez-en une.",
     ma_doublon_a:"La matière", ma_doublon_b:"existe déjà.",
     ma_th_matiere:"Matière", ma_th_coeff:"Coeff.", ma_th_ens:"Enseignant", ma_th_cycles:"Cycles", ma_tous:"Tous",
@@ -296,7 +301,8 @@ const I18N = {
     st_moyens:"💳 Moyens de paiement acceptés", st_ajouter:"+ Ajouter", st_aucun_moyen:"Aucun moyen. Ajoutez Espèces, Orange Money, etc.", st_moyens_note:"💡 Les montants sont définis par classe (tableau ci-dessous) et ajustables par élève. Le moyen de paiement sera choisi lors de chaque encaissement.",
     st_frais_classe:"📋 Frais par classe", st_frais_classe_d:"Définissez le montant propre à chaque classe (ex : 1ère année 100 000/mois, 2ème année 135 000/mois). Laisser vide = valeur par défaut de l'école.",
     st_creez_classes:"Créez d'abord des classes dans l'onglet Classes.", st_th_classe:"Classe", st_th_mensuel:"Mensuel", st_th_annuel:"Annuel", st_th_insc:"Inscription",
-    st_frais_saved:"✓ Frais enregistrés", st_save_frais:"💾 Enregistrer les frais"
+    st_frais_saved:"✓ Frais enregistrés", st_save_frais:"💾 Enregistrer les frais",
+    st_tab_ecole:"🏫 École", st_tab_apparence:"🎨 Apparence", st_tab_documents:"🏛️ En-tête & langue", st_tab_paiement:"💰 Paiement"
   },
   ar:{
     login_sub:"سجّل الدخول للمتابعة", login_id:"اسم المستخدم", login_pw:"كلمة المرور",
@@ -340,6 +346,11 @@ const I18N = {
     cl_nom:"اسم القسم *", cl_nom_ph:"مثال: 11 ع، 3 أ",
     cl_frais_an:"الرسوم المدرسية/سنة", cl_frais_insc:"رسوم التسجيل", cl_defaut:"فارغ = افتراضي المدرسة",
     cl_effectif:"العدد المتوقع",
+    cl_suivante:"القسم التالي (الانتقال)", cl_aucune_suivante:"— لا شيء (قسم نهائي) —",
+    cl_passage:"🎓 الانتقال آخر السنة", cl_passage_titre:"الانتقال آخر السنة",
+    cl_passage_intro:"التلاميذ الذين بلغوا المعدل ينتقلون إلى القسم التالي المحدد. الآخرون يبقون (راسبون). لا تُحذف النقاط.",
+    cl_passage_aucune_def:"لا يوجد قسم له « قسم تالٍ » محدد. عدّل أقسامك لتحديد القسم التالي ثم عُد إلى هنا.",
+    cl_admis:"ناجح", cl_redoublants:"راسب", cl_sans_notes:"بدون نقاط", cl_vers:"→", cl_promouvoir:"ترقية الناجحين", cl_total_promus:"تلميذ سيُرقّى",
     ma_count:"مادة", ma_empty:"لا توجد مواد. أنشئ واحدة.",
     ma_doublon_a:"المادة", ma_doublon_b:"موجودة بالفعل.",
     ma_th_matiere:"المادة", ma_th_coeff:"المعامل", ma_th_ens:"المعلم", ma_th_cycles:"الأسلاك", ma_tous:"الكل",
@@ -443,7 +454,8 @@ const I18N = {
     st_moyens:"💳 وسائل الدفع المقبولة", st_ajouter:"+ إضافة", st_aucun_moyen:"لا وسيلة. أضف نقدًا، أورنج موني، إلخ.", st_moyens_note:"💡 تُحدَّد المبالغ حسب القسم (الجدول أدناه) وقابلة للتعديل لكل تلميذ. تُختار وسيلة الدفع عند كل تحصيل.",
     st_frais_classe:"📋 الرسوم حسب القسم", st_frais_classe_d:"حدّد المبلغ الخاص بكل قسم (مثال: السنة الأولى 100000/شهر، الثانية 135000/شهر). اتركه فارغًا = القيمة الافتراضية للمدرسة.",
     st_creez_classes:"أنشئ أقسامًا أولًا في تبويب الأقسام.", st_th_classe:"القسم", st_th_mensuel:"شهري", st_th_annuel:"سنوي", st_th_insc:"التسجيل",
-    st_frais_saved:"✓ تم حفظ الرسوم", st_save_frais:"💾 حفظ الرسوم"
+    st_frais_saved:"✓ تم حفظ الرسوم", st_save_frais:"💾 حفظ الرسوم",
+    st_tab_ecole:"🏫 المدرسة", st_tab_apparence:"🎨 المظهر", st_tab_documents:"🏛️ الترويسة واللغة", st_tab_paiement:"💰 الدفع"
   }
 };
 let CURRENT_LANG = (()=>{ try{ return localStorage.getItem("monecole_lang")||"fr"; }catch(_){ return "fr"; } })();
@@ -949,6 +961,7 @@ function useSupabaseData(etablissementId) {
     addEleve: async(form)=>{const count=data.eleves.length;const {prefixe,...rest}=form;const mat=`${prefixe||"EL"}-${String(count+1).padStart(4,"0")}`;const{data:created,error}=await sb.from("eleves").insert({...rest,matricule:mat,etablissement_id:etablissementId,inscription_date:TODAY,notes:{}}).select().single();if(!error){load();showToast("Élève inscrit");return created;}else{showToast(error.message,"error");return null;}},
     updateEleve: async(id,form)=>{const{error}=await sb.from("eleves").update(form).eq("id",id);if(!error){load();showToast("Élève modifié");}else showToast(error.message,"error");},
     deleteEleve: async(id)=>{await sb.from("eleves").delete().eq("id",id);load();showToast("Élève supprimé");},
+    promouvoirEleves: async(moves)=>{for(const mv of moves){await sb.from("eleves").update({classe_id:mv.classe_id}).eq("id",mv.id);}load();showToast(`${moves.length} élève(s) promu(s)`);},
 
     saveNotes: async(eleveId,periode,matiereId,note)=>{
       const eleve=data.eleves.find(e=>e.id===eleveId);
@@ -1153,10 +1166,16 @@ function Dashboard({data,etab,setPage,currentUser}) {
 // ── CLASSES ───────────────────────────────────────────────────────────────────
 function Classes({data,ops,etab}) {
   const [modal,setModal]=useState(null);
-  const [form,setForm]=useState({nom:"",nom_ar:"",niveau:"",niveau_detail:"",serie:"",effectif:"",frais_annuel_classe:"",frais_inscription_classe:""});
+  const [form,setForm]=useState({nom:"",nom_ar:"",niveau:"",niveau_detail:"",serie:"",effectif:"",frais_annuel_classe:"",frais_inscription_classe:"",classe_suivante_id:""});
   const [loading,setLoading]=useState(false);
   const [err,setErr]=useState("");
+  const [promo,setPromo]=useState(false);
+  const [promoLoading,setPromoLoading]=useState(false);
   const devise=etab?.devise||"GNF";
+  // Moyenne annuelle d'un élève (moyenne des moyennes de période) + seuil d'admission
+  const periodes=periodesList(etab);
+  const moyAnn=(el)=>{const mp=periodes.map(p=>parseFloat(calcMoy(el.notes||{},data.matieres,p))).filter(v=>!isNaN(v));return mp.length?mp.reduce((a,b)=>a+b,0)/mp.length:null;};
+  const seuilOf=(cl)=>baremeOf(cl?.niveau)/2;
   const save=async()=>{
     if(!form.nom){setErr(t("cl_nom_oblig"));return;}
     // Anti-doublon : même nom (insensible casse/espaces) dans le même cycle
@@ -1164,15 +1183,34 @@ function Classes({data,ops,etab}) {
     const doublon=data.classes.find(c=>c.id!==modal&&norm(c.nom)===norm(form.nom)&&(c.niveau||"")===(form.niveau||""));
     if(doublon){setErr(`${t("cl_doublon_a")} "${form.nom}" ${t("cl_doublon_b")} ${form.niveau||t("cl_ce_niveau")}.`);return;}
     setErr("");setLoading(true);
-    if(modal==="add")await ops.addClass(form);else await ops.updateClass(modal,form);
+    const payload={...form,classe_suivante_id:form.classe_suivante_id?parseInt(form.classe_suivante_id):null};
+    if(modal==="add")await ops.addClass(payload);else await ops.updateClass(modal,payload);
     setLoading(false);setModal(null);
   };
   // Suggère un nom à partir du niveau + série
   const suggereNom=(niveau_detail,serie)=>!niveau_detail?"":serie?`${niveau_detail} ${serie==="Scientifique"?"S":"L"}`:niveau_detail;
-  const openNew=()=>{setErr("");setForm({nom:"",nom_ar:"",niveau:"",niveau_detail:"",serie:"",effectif:"",frais_annuel_classe:"",frais_inscription_classe:""});setModal("add");};
+  const openNew=()=>{setErr("");setForm({nom:"",nom_ar:"",niveau:"",niveau_detail:"",serie:"",effectif:"",frais_annuel_classe:"",frais_inscription_classe:"",classe_suivante_id:""});setModal("add");};
+  // Calcul du passage : par classe ayant une classe suivante, qui est admis / redoublant
+  const promoInfos=data.classes.filter(c=>c.classe_suivante_id).map(c=>{
+    const els=data.eleves.filter(e=>e.classe_id===c.id);
+    let admis=0,redouble=0,sansNote=0;
+    els.forEach(e=>{const m=moyAnn(e);if(m==null)sansNote++;else if(m>=seuilOf(c))admis++;else redouble++;});
+    const suiv=data.classes.find(x=>x.id===c.classe_suivante_id);
+    return {cl:c,suiv,admis,redouble,sansNote};
+  });
+  const totalAdmis=promoInfos.reduce((s,p)=>s+p.admis,0);
+  const promouvoir=async()=>{
+    setPromoLoading(true);
+    const moves=[];
+    data.classes.filter(c=>c.classe_suivante_id).forEach(c=>{
+      data.eleves.filter(e=>e.classe_id===c.id).forEach(e=>{const m=moyAnn(e);if(m!=null&&m>=seuilOf(c))moves.push({id:e.id,classe_id:c.classe_suivante_id});});
+    });
+    if(moves.length)await ops.promouvoirEleves(moves);
+    setPromoLoading(false);setPromo(false);
+  };
   return(
     <div>
-      <SHdr title={t("nav_classes")+" 🏫"} sub={`${data.classes.length} ${t("cl_count")}`} action={<Btn ch={t("btn_new_classe")} v="primary" onClick={openNew}/>}/>
+      <SHdr title={t("nav_classes")+" 🏫"} sub={`${data.classes.length} ${t("cl_count")}`} action={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{data.classes.length>0&&<Btn ch={t("cl_passage")} v="ghost" onClick={()=>setPromo(true)}/>}<Btn ch={t("btn_new_classe")} v="primary" onClick={openNew}/></div>}/>
       {data.classes.length===0?<Card><Empty icon="🏫" text={t("cl_empty")}/></Card>:(
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
           {CYCLES.map(cyc=>{
@@ -1190,7 +1228,7 @@ function Classes({data,ops,etab}) {
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6}}>
                       <span style={{background:"#eff6ff",color:"#1a56db",borderRadius:7,padding:"3px 9px",fontSize:11,fontWeight:700}}>👤 {data.eleves.filter(e=>e.classe_id===c.id).length}</span>
                       <div style={{display:"flex",gap:5}}>
-                        <button onClick={()=>{setErr("");setForm({nom:c.nom,nom_ar:c.nom_ar||"",niveau:c.niveau||"",niveau_detail:c.niveau_detail||"",serie:c.serie||"",effectif:c.effectif||"",frais_annuel_classe:c.frais_annuel_classe??"",frais_inscription_classe:c.frais_inscription_classe??""});setModal(c.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer"}}>✏️</button>
+                        <button onClick={()=>{setErr("");setForm({nom:c.nom,nom_ar:c.nom_ar||"",niveau:c.niveau||"",niveau_detail:c.niveau_detail||"",serie:c.serie||"",effectif:c.effectif||"",frais_annuel_classe:c.frais_annuel_classe??"",frais_inscription_classe:c.frais_inscription_classe??"",classe_suivante_id:c.classe_suivante_id??""});setModal(c.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer"}}>✏️</button>
                         <button onClick={()=>ops.deleteClass(c.id)} style={{background:"#fef2f2",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer"}}>🗑️</button>
                       </div>
                     </div>
@@ -1213,7 +1251,23 @@ function Classes({data,ops,etab}) {
           <Inp label={`${t("cl_frais_insc")} (${devise})`} type="number" value={form.frais_inscription_classe} onChange={e=>setForm(f=>({...f,frais_inscription_classe:e.target.value}))} placeholder={etab?.fraisInscription?`Défaut: ${etab.fraisInscription}`:t("cl_defaut")}/>
         </div>
         <Inp label={t("cl_effectif")} type="number" value={form.effectif} onChange={e=>setForm(f=>({...f,effectif:e.target.value}))}/>
+        <Slt label={t("cl_suivante")} value={form.classe_suivante_id} onChange={e=>setForm(f=>({...f,classe_suivante_id:e.target.value}))} opts={[{v:"",l:t("cl_aucune_suivante")},...data.classes.filter(c=>c.id!==modal).map(c=>({v:String(c.id),l:txt(c.nom,c.nom_ar)}))]}/>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:6}}><Btn ch={t("btn_annuler")} v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":t("btn_save")} v="success" onClick={save} disabled={loading}/></div>
+      </Modal>}
+      {promo&&<Modal title={t("cl_passage_titre")} onClose={()=>setPromo(false)} w={560}>
+        <div style={{fontSize:12,color:"#64748b",marginBottom:14}}>{t("cl_passage_intro")}</div>
+        {promoInfos.length===0?<div style={{fontSize:12,color:"#94a3b8",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:9,padding:"11px 13px"}}>{t("cl_passage_aucune_def")}</div>:(<>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {promoInfos.map(p=>(
+              <div key={p.cl.id} style={{background:"#f8fafc",borderRadius:10,padding:"10px 13px"}}>
+                <div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{txt(p.cl.nom,p.cl.nom_ar)} <span style={{color:"#94a3b8",fontWeight:600}}>{t("cl_vers")} {txt(p.suiv?.nom,p.suiv?.nom_ar)}</span></div>
+                <div style={{fontSize:12,marginTop:3}}><span style={{color:"#059669",fontWeight:700}}>{p.admis} {t("cl_admis")}</span> · <span style={{color:"#dc2626"}}>{p.redouble} {t("cl_redoublants")}</span>{p.sansNote>0?` · ${p.sansNote} ${t("cl_sans_notes")}`:""}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{fontSize:14,fontWeight:800,color:"#047857",marginTop:14,textAlign:"center"}}>{totalAdmis} {t("cl_total_promus")}</div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}><Btn ch={t("btn_annuler")} v="ghost" onClick={()=>setPromo(false)}/><Btn ch={promoLoading?"...":t("cl_promouvoir")} v="success" onClick={promouvoir} disabled={promoLoading||totalAdmis===0}/></div>
+        </>)}
       </Modal>}
     </div>
   );
@@ -1977,6 +2031,11 @@ function Bulletins({data,etab}) {
     const rangAnn=classmates.map(x=>{const mp=pers.map(p=>parseFloat(calcMoy(x.notes||{},data.matieres,p))).filter(v=>!isNaN(v));return{id:x.id,moy:mp.length?mp.reduce((a,b)=>a+b,0)/mp.length:0};}).sort((a,b)=>b.moy-a.moy).findIndex(x=>x.id===e.id)+1;
     const estAnnuel = pers.length===periodes.length;
     const single = pers.length===1; // une seule période : pas de colonne Moy. redondante
+    // Décision de passage (bulletin annuel) : moyenne ≥ bareme/2 → admis, sinon redouble
+    const admis = moyAnnuelle!=null && moyAnnuelle>=bareme/2;
+    const gF = e.genre==="F";
+    const decFr = admis ? `✓ Admis${gF?"e":""} — Passe en classe supérieure` : `Redoublant${gF?"e":""} — Redouble la classe`;
+    const decAr = admis ? `✓ ${gF?"ناجحة":"ناجح"} — ينتقل إلى القسم الأعلى` : `${gF?"راسبة":"راسب"} — يعيد السنة`;
     const bilD = etab.langue==="fr_ar"; // document bilingue FR + AR
     const arD = etab.langue==="ar";     // document en arabe (repli FR si pas de trad)
     const arS = s => `<span style="font-family:'Traditional Arabic','Amiri',serif;direction:rtl">${s}</span>`;
@@ -1999,6 +2058,7 @@ function Bulletins({data,etab}) {
     ${(e.pere||e.mere||e.tuteur)?`<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:-6px">${e.pere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">${dl("Père","الأب")}</div><b>${e.pere}</b>${e.tel_pere?` <span style="color:#64748b;font-weight:400">(${e.tel_pere})</span>`:""}</div>`:""}${e.mere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">${dl("Mère","الأم")}</div><b>${e.mere}</b>${e.tel_mere?` <span style="color:#64748b;font-weight:400">(${e.tel_mere})</span>`:""}</div>`:""}</div>`:""}
     <table><tr><th>${dl("Matière","المادة")}</th><th>${dl("Coeff.","المعامل")}</th>${entetesP}${single?"":`<th style="text-align:center">${dl("Moy.","المعدل")}</th>`}</tr>${lignes}${moyRow}</table>
     <div class="result" style="background:${mAnn.bg};border:2px solid ${mAnn.c}40"><div class="stat"><div class="stat-val" style="color:${mAnn.c}">${moyAnnuelle!=null?moyAnnuelle.toFixed(2):"—"}</div><div class="stat-lbl">${labelMoyGen} /${bareme}</div></div><div class="stat"><div class="stat-val" style="color:${mAnn.c};font-size:18px">${mAnn.t}</div><div class="stat-lbl">${dl("Mention","التقدير")}</div></div><div class="stat"><div class="stat-val">${rangAnn}/${classmates.length}</div><div class="stat-lbl">${dl("Rang","الرتبة")}</div></div></div>
+    ${estAnnuel&&moyAnnuelle!=null?`<div style="margin-top:12px;text-align:center;padding:10px;border-radius:9px;font-weight:800;font-size:13px;background:${admis?"#ecfdf5":"#fef2f2"};color:${admis?"#047857":"#dc2626"};border:1.5px solid ${admis?"#10b981":"#fca5a5"}">${dl("Décision du conseil","قرار المجلس")} : ${dl(decFr,decAr)}</div>`:""}
     <div class="sign" style="margin-top:40px"><span style="text-align:center">${dl(etab.signataire_grade||"Le Directeur","المدير")}<br/>${etab.signataire_nom?`<b>${etab.signataire_nom}</b><br/>`:""}<span style="color:#94a3b8;font-size:11px">${dl("Signature & cachet","التوقيع والختم")}</span></span><span style="text-align:center">${dl("L'Enseignant(e)","المعلم(ة)")}<br/><br/><span style="color:#94a3b8;font-size:11px">${dl("Signature","التوقيع")}</span></span></div>
     <p style="text-align:center;font-size:10px;color:#cbd5e1;margin-top:16px">Généré par MonEcole · ${etab.email||""}</p>`;
   };
@@ -2601,6 +2661,7 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
   });
   const [loading,setLoading]=useState(false);
   const [saved,setSaved]=useState(false);
+  const [section,setSection]=useState("ecole");
   // Frais par classe (édition groupée)
   const [fraisClasses,setFraisClasses]=useState(()=>{
     const o={};(data?.classes||[]).forEach(c=>{o[c.id]={mensuel:c.mensualite_classe??"",annuel:c.frais_annuel_classe??"",insc:c.frais_inscription_classe??""};});return o;
@@ -2662,7 +2723,12 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
   return(
     <div>
       <SHdr title={t("nav_parametres")+" ⚙️"} sub={t("st_sub")}/>
-      <Card s={{marginBottom:14}}>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
+        {[["ecole",t("st_tab_ecole")],["apparence",t("st_tab_apparence")],["documents",t("st_tab_documents")],["paiement",t("st_tab_paiement")]].map(([id,lbl])=>{const on=section===id;return(
+          <button key={id} onClick={()=>setSection(id)} style={{padding:"9px 16px",borderRadius:11,border:on?"2px solid #1a56db":"1.5px solid #e2e8f0",background:on?"#eff6ff":"#fff",color:on?"#1a56db":"#64748b",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{lbl}</button>
+        );})}
+      </div>
+      {section==="apparence"&&<Card s={{marginBottom:14}}>
         <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>{t("st_logos")}</div>
         <div style={{background:"#eff6ff",border:"1px solid #dbeafe",borderRadius:11,padding:13,marginBottom:16}}>
           <div style={{fontSize:12,fontWeight:700,color:"#1a56db",marginBottom:3}}>{t("st_logo_app")}</div>
@@ -2749,8 +2815,8 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
           {saved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>{t("st_enregistre")}</span>}
           <Btn ch={loading?t("st_enregistrement"):t("no_save")} v="success" onClick={save} disabled={loading}/>
         </div>
-      </Card>
-      <Card s={{marginBottom:14}}>
+      </Card>}
+      {section==="documents"&&<Card s={{marginBottom:14}}>
         <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:6}}>{t("st_langue_doc")}</div>
         <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>{t("st_langue_doc_d")}</div>
         <Slt label={t("st_langue")} value={form.langue} onChange={set("langue")} opts={[{v:"fr",l:t("st_langue_fr")},{v:"fr_ar",l:t("st_langue_frar")},{v:"ar",l:t("st_langue_ar")}]}/>
@@ -2762,8 +2828,8 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
             ))}
           </div>
         </div>}
-      </Card>
-      <Card s={{marginBottom:14}}>
+      </Card>}
+      {section==="apparence"&&<Card s={{marginBottom:14}}>
         <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:6}}>{t("st_theme")}</div>
         <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>{t("st_theme_d")}</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
@@ -2798,8 +2864,12 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
           <div style={{textAlign:"center",fontWeight:800,fontSize:13,color:form.theme_couleur,textTransform:"uppercase"}}>{t("st_apercu_theme")}</div>
           <div style={{textAlign:form.theme_titre_centre?"center":"left",marginTop:8}}><span style={{display:"inline-block",border:`2px solid ${form.theme_couleur}`,borderRadius:8,padding:"5px 14px",fontWeight:800,fontSize:12,color:"#0f172a",background:"#fff"}}>BULLETIN DE NOTES</span></div>
         </div>
-      </Card>
-      <Card s={{marginBottom:14}}>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16,alignItems:"center"}}>
+          {saved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>{t("st_enregistre")}</span>}
+          <Btn ch={loading?t("st_enregistrement"):t("no_save")} v="success" onClick={save} disabled={loading}/>
+        </div>
+      </Card>}
+      {section==="documents"&&<Card s={{marginBottom:14}}>
         <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>{t("st_entete")}</div>
         <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>{t("st_entete_d")}</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
@@ -2858,8 +2928,12 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
             </div>
           )}
         </div>
-      </Card>
-      <Card s={{marginBottom:14}}>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16,alignItems:"center"}}>
+          {saved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>{t("st_enregistre")}</span>}
+          <Btn ch={loading?t("st_enregistrement"):t("no_save")} v="success" onClick={save} disabled={loading}/>
+        </div>
+      </Card>}
+      {section==="ecole"&&<Card s={{marginBottom:14}}>
         <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>{t("st_identite")}</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
           <Inp label={t("st_nom_etab")} value={form.nom} onChange={set("nom")}/>
@@ -2903,8 +2977,8 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
           {saved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>{t("st_enregistre")}</span>}
           <Btn ch={loading?t("st_enregistrement"):t("no_save")} v="success" onClick={save} disabled={loading}/>
         </div>
-      </Card>
-      <Card s={{marginBottom:14}}>
+      </Card>}
+      {section==="paiement"&&<Card s={{marginBottom:14}}>
         <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>{t("st_mode_paie")}</div>
         <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>{t("st_mode_paie_d")}</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
@@ -2933,8 +3007,8 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
           {saved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>{t("st_enregistre")}</span>}
           <Btn ch={loading?t("st_enregistrement"):t("no_save")} v="success" onClick={save} disabled={loading}/>
         </div>
-      </Card>
-      <Card s={{marginBottom:14}}>
+      </Card>}
+      {section==="paiement"&&<Card s={{marginBottom:14}}>
         <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:6}}>{t("st_frais_classe")}</div>
         <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>{t("st_frais_classe_d")}</div>
         {(data?.classes||[]).length===0?<div style={{fontSize:12,color:"#94a3b8"}}>{t("st_creez_classes")}</div>:(
@@ -2961,7 +3035,7 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
           {fraisSaved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>{t("st_frais_saved")}</span>}
           <Btn ch={savingFrais?t("st_enregistrement"):t("st_save_frais")} v="success" onClick={saveFrais} disabled={savingFrais}/>
         </div>}
-      </Card>
+      </Card>}
     </div>
   );
 }
@@ -3061,11 +3135,12 @@ function App() {
   const [codeActivation,setCodeActivation]=useState("");
   const [currentUser,setCurrentUser]=useState(null);
   const [etab,setEtab]=useState(null);
-  const [page,setPage]=useState("dashboard");
+  const [page,setPage]=useState(()=>{try{return localStorage.getItem("monecole_page")||"dashboard";}catch(_){return "dashboard";}});
   const [lang,setLang]=useState(CURRENT_LANG);
   const [isMobile,setIsMobile]=useState(()=>{try{return window.innerWidth<860;}catch(_){return false;}});
   const [navOpen,setNavOpen]=useState(false);
   useEffect(()=>{const onR=()=>{try{setIsMobile(window.innerWidth<860);}catch(_){}};window.addEventListener("resize",onR);return ()=>window.removeEventListener("resize",onR);},[]);
+  useEffect(()=>{try{localStorage.setItem("monecole_page",page);}catch(_){}},[page]);
 
   const {data,syncStatus,toast,ops}=useSupabaseData(etab?.id);
 
