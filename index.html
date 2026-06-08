@@ -149,6 +149,42 @@ const MENTION = (v, bareme=20) => {
   return{t:"Insuffisant",c:"#ef4444",bg:"#fee2e2"};
 };
 const fmtMoney = (v,d="GNF") => !v&&v!==0?"—":Number(v).toLocaleString("fr-FR")+" "+(DEVISES[d]?.symbole||d);
+// ── i18n : Français / Arabe ───────────────────────────────────────────────────
+const I18N = {
+  fr:{
+    login_sub:"Connectez-vous pour continuer", login_id:"Identifiant", login_pw:"Mot de passe",
+    login_btn:"Se connecter →", login_btn_loading:"Connexion...", login_err:"Identifiant ou mot de passe incorrect.",
+    logout:"Déconnexion", reconnect:"Reconnexion…",
+    nav_dashboard:"Tableau de bord", nav_classes:"Classes", nav_matieres:"Matières", nav_eleves:"Élèves",
+    nav_professeurs:"Professeurs", nav_emploi:"Emploi du temps", nav_notes:"Saisie des notes", nav_bulletins:"Bulletins",
+    nav_fiche_notes:"Fiche de notes", nav_paiements:"Paiements", nav_presences:"Présences", nav_messagerie:"Messagerie",
+    nav_utilisateurs:"Utilisateurs", nav_parametres:"Établissement"
+  },
+  ar:{
+    login_sub:"سجّل الدخول للمتابعة", login_id:"اسم المستخدم", login_pw:"كلمة المرور",
+    login_btn:"تسجيل الدخول ←", login_btn_loading:"جارٍ الدخول...", login_err:"اسم المستخدم أو كلمة المرور غير صحيحة.",
+    logout:"تسجيل الخروج", reconnect:"إعادة الاتصال…",
+    nav_dashboard:"لوحة التحكم", nav_classes:"الفصول", nav_matieres:"المواد", nav_eleves:"التلاميذ",
+    nav_professeurs:"المعلمون", nav_emploi:"الجدول الزمني", nav_notes:"إدخال الدرجات", nav_bulletins:"كشوف الدرجات",
+    nav_fiche_notes:"ورقة الدرجات", nav_paiements:"المدفوعات", nav_presences:"الحضور", nav_messagerie:"الرسائل",
+    nav_utilisateurs:"المستخدمون", nav_parametres:"المؤسسة"
+  }
+};
+let CURRENT_LANG = (()=>{ try{ return localStorage.getItem("monecole_lang")||"fr"; }catch(_){ return "fr"; } })();
+const t = (k)=> (I18N[CURRENT_LANG] && I18N[CURRENT_LANG][k]!=null) ? I18N[CURRENT_LANG][k] : (I18N.fr[k]!=null ? I18N.fr[k] : k);
+
+// Sélecteur de langue FR / Arabe. dark=true pour fond sombre (barre latérale).
+function LangToggle({lang,setLang,dark}){
+  const opts=[{v:"fr",l:"FR"},{v:"ar",l:"ع"}];
+  return (
+    <div style={{display:"inline-flex",gap:4,background:dark?"rgba(255,255,255,0.08)":"#f1f5f9",borderRadius:9,padding:3}}>
+      {opts.map(o=>{const on=lang===o.v;return(
+        <button key={o.v} onClick={()=>setLang(o.v)} style={{border:"none",borderRadius:7,padding:"4px 11px",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"'Plus Jakarta Sans',sans-serif",background:on?(dark?"#fff":"#1a56db"):"transparent",color:on?(dark?"#0f172a":"#fff"):(dark?"rgba(255,255,255,0.65)":"#64748b")}}>{o.l}</button>
+      );})}
+    </div>
+  );
+}
+
 const calcMoy = (notes,mats,periode) => {
   let tot=0,cf=0;
   mats.forEach(m=>{ const n=periode?notes?.[periode]?.[m.id]:notes?.[m.id]; if(n!=null&&n!==""){tot+=parseFloat(n)*m.coefficient;cf+=m.coefficient;} });
@@ -477,9 +513,9 @@ function Onboarding({codeActivation,onDone}) {
       const {data:etabData,error:etabErr}=await sb.from("etablissements").upsert({...ecole,code_activation:codeActivation,created_at:new Date().toISOString()}).select().single();
       if(etabErr)throw etabErr;
       // Sauvegarder admin
-      const {error:userErr}=await sb.from("utilisateurs").insert({nom:admin.nom,prenom:admin.prenom,identifiant:admin.identifiant,password:admin.password,role:"Administrateur",etablissement_id:etabData.id});
+      const {data:userData,error:userErr}=await sb.from("utilisateurs").insert({nom:admin.nom,prenom:admin.prenom,identifiant:admin.identifiant,password:admin.password,role:"Administrateur",etablissement_id:etabData.id}).select().single();
       if(userErr)throw userErr;
-      onDone(etabData,{...admin,role:"Administrateur",etablissement_id:etabData.id});
+      onDone(etabData,userData||{...admin,role:"Administrateur",etablissement_id:etabData.id});
     } catch(e){setErr("Erreur de connexion : "+e.message);}
     setLoading(false);
   };
@@ -538,13 +574,13 @@ function Onboarding({codeActivation,onDone}) {
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
-function Login({onLogin}) {
+function Login({onLogin,lang,setLang}) {
   const [id,setId]=useState("");const [pw,setPw]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
   const go=async()=>{
     setLoading(true);setErr("");
     try {
       const {data,error}=await sb.from("utilisateurs").select("*,etablissements(*)").eq("identifiant",id.trim()).eq("password",pw).single();
-      if(error||!data)throw new Error("Identifiant ou mot de passe incorrect.");
+      if(error||!data)throw new Error(t("login_err"));
       onLogin(data,data.etablissements);
     } catch(e){setErr(e.message);}
     setLoading(false);
@@ -552,15 +588,16 @@ function Login({onLogin}) {
   return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1a56db)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",padding:16}}>
       <div style={{background:"#fff",borderRadius:22,padding:38,width:400,maxWidth:"100%",boxShadow:"0 32px 80px rgba(0,0,0,0.3)"}}>
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}><LangToggle lang={lang} setLang={setLang}/></div>
         <div style={{textAlign:"center",marginBottom:26}}>
           <div style={{width:56,height:56,borderRadius:15,background:"#eff6ff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,margin:"0 auto 12px"}}>🎓</div>
           <h2 style={{margin:"0 0 3px",fontSize:19,fontWeight:900,color:"#0f172a"}}>MonEcole</h2>
-          <p style={{margin:0,color:"#94a3b8",fontSize:12}}>Connectez-vous pour continuer</p>
+          <p style={{margin:0,color:"#94a3b8",fontSize:12}}>{t("login_sub")}</p>
         </div>
-        <Inp label="Identifiant" value={id} onChange={e=>setId(e.target.value)} placeholder="votre.identifiant"/>
-        <Lbl t="Mot de passe"><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} style={iSt()} placeholder="••••••••"/></Lbl>
+        <Inp label={t("login_id")} value={id} onChange={e=>setId(e.target.value)} placeholder="votre.identifiant"/>
+        <Lbl t={t("login_pw")}><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} style={iSt()} placeholder="••••••••"/></Lbl>
         {err&&<div style={{background:"#fef2f2",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,marginBottom:12}}>{err}</div>}
-        <Btn ch={loading?"Connexion...":"Se connecter →"} v="primary" onClick={go} disabled={!id||!pw||loading} full/>
+        <Btn ch={loading?t("login_btn_loading"):t("login_btn")} v="primary" onClick={go} disabled={!id||!pw||loading} full/>
       </div>
     </div>
   );
@@ -745,7 +782,7 @@ function Dashboard({data,etab,setPage,currentUser}) {
   return(
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:12}}>
-        <div><h2 style={{margin:0,fontSize:22,fontWeight:800,color:"#0f172a",fontFamily:"'Sora',sans-serif",letterSpacing:-0.5}}>Tableau de bord 📊</h2><p style={{margin:"5px 0 0",color:"#64748b",fontSize:13}}>{etab.annee||""} · {etab.systeme==="semestre"?"Semestriel":"Trimestriel"} · Temps réel</p></div>
+        <div><h2 style={{margin:0,fontSize:22,fontWeight:800,color:"#0f172a",fontFamily:"'Sora',sans-serif",letterSpacing:-0.5}}>{t("nav_dashboard")} 📊</h2><p style={{margin:"5px 0 0",color:"#64748b",fontSize:13}}>{etab.annee||""} · {etab.systeme==="semestre"?"Semestriel":"Trimestriel"} · Temps réel</p></div>
         <div style={{background:"linear-gradient(135deg,#0f172a,#1a56db)",borderRadius:15,padding:"12px 20px",color:"#fff",textAlign:"right",boxShadow:"0 8px 22px -8px rgba(26,86,219,.6)"}}>
           <div style={{fontSize:12,fontWeight:600,color:"rgba(255,255,255,0.75)",textTransform:"capitalize"}}>{dateStr}</div>
           <div style={{fontSize:26,fontWeight:900,fontFamily:"'Sora',sans-serif",letterSpacing:1,lineHeight:1.1}}>{heureStr}</div>
@@ -1652,20 +1689,21 @@ function Bulletins({data,etab}) {
     const classmates=data.eleves.filter(x=>x.classe_id===e.classe_id);
     const rangAnn=classmates.map(x=>{const mp=pers.map(p=>parseFloat(calcMoy(x.notes||{},data.matieres,p))).filter(v=>!isNaN(v));return{id:x.id,moy:mp.length?mp.reduce((a,b)=>a+b,0)/mp.length:0};}).sort((a,b)=>b.moy-a.moy).findIndex(x=>x.id===e.id)+1;
     const estAnnuel = pers.length===periodes.length;
+    const single = pers.length===1; // une seule période : pas de colonne Moy. redondante
     const titreDoc = estAnnuel ? `Bulletin annuel — ${etab.annee||""}` : `Bulletin de notes — ${pers[pers.length-1]}`;
     const entetesP=pers.map(p=>`<th style="text-align:center">${p}</th>`).join("");
     const lignes=data.matieres.map((mat,i)=>{
       const cells=pers.map(p=>{const note=e.notes?.[p]?.[mat.id];return`<td style="text-align:center;font-weight:700;color:${note!=null&&note!==""?"#0f172a":"#cbd5e1"}">${note!=null&&note!==""?note:"—"}</td>`;}).join("");
       const vals=pers.map(p=>e.notes?.[p]?.[mat.id]).filter(n=>n!=null&&n!=="").map(parseFloat);
       const moyMat=vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2):"—";
-      return`<tr style="background:${i%2===0?"#f8fafc":"#fff"}"><td>${mat.nom}</td><td style="text-align:center">×${mat.coefficient}</td>${cells}<td style="text-align:center;font-weight:900;color:${etab.theme_couleur||"#1a56db"}">${moyMat}</td></tr>`;
+      return`<tr style="background:${i%2===0?"#f8fafc":"#fff"}"><td>${mat.nom}</td><td style="text-align:center">×${mat.coefficient}</td>${cells}${single?"":`<td style="text-align:center;font-weight:900;color:${etab.theme_couleur||"#1a56db"}">${moyMat}</td>`}</tr>`;
     }).join("");
-    const moyRow=`<tr style="background:#eff6ff;font-weight:800"><td colspan="2">Moyenne</td>${moyP.map(v=>`<td style="text-align:center;color:${v!=null&&v>=bareme/2?"#059669":v!=null?"#dc2626":"#cbd5e1"}">${v!=null?v.toFixed(2):"—"}</td>`).join("")}<td style="text-align:center;color:${etab.theme_couleur||"#1a56db"}">${moyAnnuelle!=null?moyAnnuelle.toFixed(2):"—"}</td></tr>`;
-    const labelMoyGen = estAnnuel ? "Moyenne annuelle" : "Moyenne cumulée";
+    const moyRow=`<tr style="background:#eff6ff;font-weight:800"><td colspan="2">Moyenne</td>${moyP.map(v=>`<td style="text-align:center;color:${v!=null&&v>=bareme/2?"#059669":v!=null?"#dc2626":"#cbd5e1"}">${v!=null?v.toFixed(2):"—"}</td>`).join("")}${single?"":`<td style="text-align:center;color:${etab.theme_couleur||"#1a56db"}">${moyAnnuelle!=null?moyAnnuelle.toFixed(2):"—"}</td>`}</tr>`;
+    const labelMoyGen = single ? "Moyenne" : (estAnnuel ? "Moyenne annuelle" : "Moyenne cumulée");
     return`${officialHeader(etab,{classe:cl?.nom,docTitle:titreDoc})}
     <div class="grid" style="grid-template-columns:1fr 1fr 1fr 1fr"><div><div style="font-size:10px;color:#666;text-transform:uppercase">Élève</div><b>${e.prenom} ${e.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Matricule</div><b style="font-family:monospace">${e.matricule}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Classe</div><b>${cl?.nom}</b></div><div><div style="font-size:10px;color:#666;text-transform:uppercase">Année</div><b>${etab.annee||""}</b></div></div>
     ${(e.pere||e.mere||e.tuteur)?`<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:-6px">${e.pere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Père</div><b>${e.pere}</b>${e.tel_pere?` <span style="color:#64748b;font-weight:400">(${e.tel_pere})</span>`:""}</div>`:""}${e.mere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Mère</div><b>${e.mere}</b>${e.tel_mere?` <span style="color:#64748b;font-weight:400">(${e.tel_mere})</span>`:""}</div>`:""}</div>`:""}
-    <table><tr><th>Matière</th><th>Coeff.</th>${entetesP}<th style="text-align:center">Moy.</th></tr>${lignes}${moyRow}</table>
+    <table><tr><th>Matière</th><th>Coeff.</th>${entetesP}${single?"":'<th style="text-align:center">Moy.</th>'}</tr>${lignes}${moyRow}</table>
     <div class="result" style="background:${mAnn.bg};border:2px solid ${mAnn.c}40"><div class="stat"><div class="stat-val" style="color:${mAnn.c}">${moyAnnuelle!=null?moyAnnuelle.toFixed(2):"—"}</div><div class="stat-lbl">${labelMoyGen} /${bareme}</div></div><div class="stat"><div class="stat-val" style="color:${mAnn.c};font-size:18px">${mAnn.t}</div><div class="stat-lbl">Mention</div></div><div class="stat"><div class="stat-val">${rangAnn}/${classmates.length}</div><div class="stat-lbl">Rang</div></div></div>
     <div class="sign" style="margin-top:40px"><span style="text-align:center">${etab.signataire_grade||"Le Directeur"}<br/>${etab.signataire_nom?`<b>${etab.signataire_nom}</b><br/>`:""}<span style="color:#94a3b8;font-size:11px">Signature & cachet</span></span><span style="text-align:center">L'Enseignant(e)<br/><br/><span style="color:#94a3b8;font-size:11px">Signature</span></span></div>
     <p style="text-align:center;font-size:10px;color:#cbd5e1;margin-top:16px">Généré par MonEcole · ${etab.email||""}</p>`;
@@ -1706,11 +1744,11 @@ function Bulletins({data,etab}) {
           <Btn ch="🖨️ Imprimer" v="primary" onClick={()=>{const idx=periodes.indexOf(periode);const persCumul=periodes.slice(0,idx+1);printHTML(modeBul==="annuel"?bulletinAnnuelHTML(e):bulletinAnnuelHTML(e,persCumul),`Bulletin ${e.prenom} ${e.nom}`,{etab});}}/>
         </div>
         {modeBul==="annuel"?(
-          <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}}>
+          <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}} dir="ltr">
             <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left,.oh-right{flex:1}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-mid{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 6px}.oh-title{text-align:center;margin-top:12px;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid #1a56db;border-radius:8px;padding:7px 0;background:#eff6ff}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{border:1px solid #d8dee9;padding:7px 9px;font-size:12px}th{background:#1a56db;color:#fff;font-weight:700}.grid{display:grid;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:14px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e)}}/>
           </div>
         ):(
-        <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}}>
+        <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}} dir="ltr">
           <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left,.oh-right{flex:1}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-mid{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 6px}.oh-title{text-align:center;margin:12px auto 0;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid ${etab.theme_couleur||"#1a56db"};border-radius:8px;padding:7px 18px;background:${(etab.theme_couleur||"#1a56db")}12;display:block;max-width:60%}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{border:1px solid #d8dee9;padding:7px 9px;font-size:12px}th{background:${etab.theme_couleur||"#1a56db"};color:#fff;font-weight:700}.grid{display:grid;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:14px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e,periodes.slice(0,periodes.indexOf(periode)+1))}}/>
         </div>
         )}
@@ -1723,7 +1761,7 @@ function Bulletins({data,etab}) {
         <div style={{display:"flex",gap:8}}>
           <select value={periode} onChange={e=>setPeriode(e.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{periodes.map(p=><option key={p} value={p}>{p}</option>)}</select>
           <select value={filterCl} onChange={e=>setFilterCl(e.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}><option value="">Toutes classes</option>{data.classes.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</select>
-          <Btn ch="🖨️ Tout imprimer" v="warn" onClick={()=>{if(!filtered.length)return;const html=filtered.map((e,i)=>`${bulletinHTML(e,periode)}${i<filtered.length-1?'<div class="page-break"></div>':""}`).join("");printHTML(html,"Bulletins — "+periode,{etab});}}/>
+          <Btn ch="🖨️ Tout imprimer" v="warn" onClick={()=>{if(!filtered.length)return;const idx=periodes.indexOf(periode);const persCumul=periodes.slice(0,idx+1);const html=filtered.map((e,i)=>`${bulletinAnnuelHTML(e,persCumul)}${i<filtered.length-1?'<div class="page-break"></div>':""}`).join("");printHTML(html,"Bulletins — "+periode,{etab});}}/>
         </div>
       }/>
       {data.eleves.length===0?<Card><Empty icon="📄" text="Aucun élève."/></Card>:(
@@ -2720,25 +2758,53 @@ function EditorHub({onCreate}) {
 function App() {
   // Mode création (éditeur) seulement si l'URL contient #admin-create
   const adminMode = isAdminCreateMode();
+  const hasSession = (()=>{ try{ return !adminMode && !!localStorage.getItem("monecole_uid"); }catch(_){ return false; } })();
   const [screen,setScreen]=useState(adminMode?"master":"login");
+  const [booting,setBooting]=useState(hasSession); // restauration de session en cours
   const [codeActivation,setCodeActivation]=useState("");
   const [currentUser,setCurrentUser]=useState(null);
   const [etab,setEtab]=useState(null);
   const [page,setPage]=useState("dashboard");
+  const [lang,setLang]=useState(CURRENT_LANG);
 
   const {data,syncStatus,toast,ops}=useSupabaseData(etab?.id);
 
+  // Applique la langue : met à jour la variable globale, le stockage et le sens d'écriture (RTL pour l'arabe)
+  useEffect(()=>{ CURRENT_LANG=lang; try{localStorage.setItem("monecole_lang",lang);}catch(_){} try{document.documentElement.lang=lang;document.documentElement.dir=lang==="ar"?"rtl":"ltr";}catch(_){} },[lang]);
+
   useEffect(()=>{const l=document.createElement("link");l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap";l.rel="stylesheet";document.head.appendChild(l);},[]);
+
+  // Restaure l'utilisateur connecté après un rafraîchissement (session stockée par identifiant)
+  useEffect(()=>{
+    if(!booting) return;
+    let uid=null; try{ uid=localStorage.getItem("monecole_uid"); }catch(_){}
+    if(!uid){ setBooting(false); return; }
+    (async()=>{
+      try{
+        const {data:u,error}=await sb.from("utilisateurs").select("*,etablissements(*)").eq("id",uid).single();
+        if(error||!u) throw error||new Error("session invalide");
+        setCurrentUser(u); setEtab(u.etablissements||null); setScreen("app");
+      }catch(_){ try{localStorage.removeItem("monecole_uid");}catch(__){} setScreen("login"); }
+      setBooting(false);
+    })();
+  },[booting]);
+
+  if(booting) return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1a56db)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,fontFamily:"'Plus Jakarta Sans',sans-serif",color:"#fff"}}>
+      <div style={{width:54,height:54,borderRadius:15,background:"rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>🎓</div>
+      <div style={{fontSize:13,fontWeight:700,opacity:.85}}>{t("reconnect")}</div>
+    </div>
+  );
 
   // Espace éditeur (création d'école) — protégé par mot de passe maître
   if(screen==="master") return <MasterGate onOk={()=>setScreen("editor")}/>;
   if(screen==="editor") return <EditorHub onCreate={()=>setScreen("activation")}/>;
   if(screen==="activation") return <ActivationScreen onDone={c=>{setCodeActivation(c);setScreen("check");}}/>;
   if(screen==="check") return <CheckScreen codeActivation={codeActivation} onResult={(e)=>{if(e){setEtab(e);setScreen("login");}else setScreen("onboarding");}}/>;
-  if(screen==="onboarding") return <Onboarding codeActivation={codeActivation} onDone={(e,a)=>{setEtab(e);setCurrentUser(a);setScreen("app");}}/>;
+  if(screen==="onboarding") return <Onboarding codeActivation={codeActivation} onDone={(e,a)=>{try{if(a&&a.id!=null)localStorage.setItem("monecole_uid",String(a.id));}catch(_){}setEtab(e);setCurrentUser(a);setScreen("app");}}/>;
 
   // Écran normal pour les écoles : connexion directe
-  if(screen==="login") return <Login onLogin={(u,e)=>{setCurrentUser(u);setEtab(e||etab);setScreen("app");}}/>;
+  if(screen==="login") return <Login lang={lang} setLang={setLang} onLogin={(u,e)=>{try{if(u&&u.id!=null)localStorage.setItem("monecole_uid",String(u.id));}catch(_){}setCurrentUser(u);setEtab(e||etab);setScreen("app");}}/>;
 
   // Sécurité : un professeur ne peut afficher que les pages autorisées
   const allowed=navForRole(currentUser?.role).map(n=>n.id);
@@ -2782,12 +2848,13 @@ function App() {
             <button key={n.id} className="me-nav" onClick={()=>setPage(n.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"9px 11px",borderRadius:10,border:"none",cursor:"pointer",textAlign:"left",marginBottom:2,background:page===n.id?"linear-gradient(135deg,#1a56db,#1e40af)":"transparent",color:page===n.id?"#fff":"rgba(255,255,255,0.5)",fontWeight:page===n.id?700:500,fontSize:11.5,fontFamily:"'Plus Jakarta Sans',sans-serif",boxShadow:page===n.id?"0 4px 12px -4px rgba(26,86,219,.6)":"none"}}
               onMouseOver={e=>{if(page!==n.id){e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color="rgba(255,255,255,0.8)";}}}
               onMouseOut={e=>{if(page!==n.id){e.currentTarget.style.background="transparent";e.currentTarget.style.color="rgba(255,255,255,0.5)";}}}>
-              <span style={{fontSize:15}}>{n.icon}</span>{n.l}
+              <span style={{fontSize:15}}>{n.icon}</span>{t("nav_"+n.id)}
             </button>
           ))}
         </nav>
         <div style={{padding:"10px 6px",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
-          <button className="me-btn" onClick={()=>{setCurrentUser(null);setScreen("login");}} style={{width:"100%",background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🚪 Déconnexion</button>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:9}}><LangToggle lang={lang} setLang={setLang} dark/></div>
+          <button className="me-btn" onClick={()=>{try{localStorage.removeItem("monecole_uid");}catch(_){}setCurrentUser(null);setScreen("login");}} style={{width:"100%",background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🚪 {t("logout")}</button>
         </div>
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"26px 28px"}}><div key={safePage} className="me-page">{pages[safePage]}</div></div>
