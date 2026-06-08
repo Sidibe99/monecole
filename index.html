@@ -149,6 +149,42 @@ const MENTION = (v, bareme=20) => {
   return{t:"Insuffisant",c:"#ef4444",bg:"#fee2e2"};
 };
 const fmtMoney = (v,d="GNF") => !v&&v!==0?"—":Number(v).toLocaleString("fr-FR")+" "+(DEVISES[d]?.symbole||d);
+// ── Excel : chargement de SheetJS à la demande (CDN) + export / lecture ─────────
+const loadXLSX = () => new Promise((res,rej)=>{
+  if(window.XLSX) return res(window.XLSX);
+  const s=document.createElement("script");
+  s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+  s.onload=()=>res(window.XLSX);
+  s.onerror=()=>rej(new Error("Chargement Excel impossible (connexion requise)."));
+  document.head.appendChild(s);
+});
+// Exporte un tableau d'objets en .xlsx ; les colonnes s'adaptent automatiquement aux clés présentes
+const exportXLSX = async (rows,filename,sheet="Feuille1") => {
+  const XLSX=await loadXLSX();
+  const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{}]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,sheet.slice(0,31));
+  XLSX.writeFile(wb,filename);
+};
+// Lit la 1ère feuille d'un fichier Excel/CSV → tableau d'objets {entête: valeur}
+const readXLSX = async (file) => {
+  const XLSX=await loadXLSX();
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array"});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws,{defval:""});
+};
+// Exporte un tableau d'objets en document Word (.doc) ; les colonnes s'adaptent aux clés
+const exportDOC = (rows,filename,title="") => {
+  const cols=rows.length?Object.keys(rows[0]):[];
+  const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const thead=`<tr>${cols.map(c=>`<th style="background:#1a56db;color:#fff;border:1px solid #888;padding:6px 9px;text-align:left">${esc(c)}</th>`).join("")}</tr>`;
+  const tbody=rows.map(r=>`<tr>${cols.map(c=>`<td style="border:1px solid #bbb;padding:5px 9px;font-size:11pt">${esc(r[c])}</td>`).join("")}</tr>`).join("");
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${esc(title)}</title></head><body style="font-family:Arial,sans-serif">${title?`<h2>${esc(title)}</h2>`:""}<table style="border-collapse:collapse;width:100%;font-size:11pt">${thead}${tbody}</table></body></html>`;
+  const blob=new Blob(["\ufeff"+html],{type:"application/msword"});
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+
 // ── i18n : Français / Arabe ───────────────────────────────────────────────────
 const I18N = {
   fr:{
@@ -163,6 +199,12 @@ const I18N = {
     btn_new_classe:"+ Nouvelle classe", btn_new_matiere:"+ Nouvelle matière", btn_new_prof:"+ Nouveau professeur",
     btn_new_user:"+ Nouvel utilisateur", btn_new_groupe:"+ Nouveau groupe",
     btn_modifier:"Modifier", btn_supprimer:"Supprimer",
+    imp_export:"⬇ Exporter Excel", imp_import:"⬆ Importer Excel", imp_titre:"Importer des élèves (Excel / CSV)", imp_word:"⬇ Exporter Word",
+    imp_intro:"Choisissez la classe de destination, puis un fichier Excel (.xlsx) ou CSV. La première ligne doit contenir les intitulés de colonnes.",
+    imp_choisir_fichier:"📁 Choisir un fichier", imp_detectes:"élève(s) détecté(s)", imp_importer:"Importer",
+    imp_aucun:"Aucun élève valide trouvé (colonnes Nom et Prénom requises).", imp_doublons:"Tous ces élèves existent déjà dans cette classe.",
+    imp_rien_exporter:"Rien à exporter.",
+    imp_colonnes:"Colonnes reconnues : Nom, Prénom, Genre, Date de naissance, Lieu, Père, Tél père, Mère, Tél mère, Téléphone, Tuteur.",
     btn_print:"🖨️ Imprimer", btn_print_fiche:"🖨️ Imprimer la fiche",
     db_realtime:"Temps réel", sys_trim:"Trimestriel", sys_sem:"Semestriel",
     db_cours_jour:"Cours du jour", db_cours:"cours", db_mes_matieres:"mes matières",
@@ -319,6 +361,12 @@ const I18N = {
     btn_new_classe:"+ فصل جديد", btn_new_matiere:"+ مادة جديدة", btn_new_prof:"+ أستاذ جديد",
     btn_new_user:"+ مستخدم جديد", btn_new_groupe:"+ مجموعة جديدة",
     btn_modifier:"تعديل", btn_supprimer:"حذف",
+    imp_export:"⬇ تصدير إكسل", imp_import:"⬆ استيراد إكسل", imp_titre:"استيراد التلاميذ (إكسل / CSV)", imp_word:"⬇ تصدير وورد",
+    imp_intro:"اختر القسم الوجهة، ثم ملف إكسل (.xlsx) أو CSV. يجب أن يحتوي السطر الأول على عناوين الأعمدة.",
+    imp_choisir_fichier:"📁 اختر ملفًا", imp_detectes:"تلميذ تم اكتشافه", imp_importer:"استيراد",
+    imp_aucun:"لم يُعثر على تلميذ صالح (عمودا اللقب والاسم مطلوبان).", imp_doublons:"كل هؤلاء التلاميذ موجودون بالفعل في هذا القسم.",
+    imp_rien_exporter:"لا شيء للتصدير.",
+    imp_colonnes:"الأعمدة المعترف بها: اللقب، الاسم، الجنس، تاريخ الميلاد، المكان، الأب، هاتف الأب، الأم، هاتف الأم، الهاتف، الولي.",
     btn_print:"🖨️ طباعة", btn_print_fiche:"🖨️ طباعة الورقة",
     db_realtime:"الوقت الحقيقي", sys_trim:"فصلي", sys_sem:"سداسي",
     db_cours_jour:"حصص اليوم", db_cours:"حصة", db_mes_matieres:"موادي",
@@ -967,6 +1015,7 @@ function useSupabaseData(etablissementId) {
     addEleve: async(form)=>{const count=data.eleves.length;const {prefixe,...rest}=form;const mat=`${prefixe||"EL"}-${String(count+1).padStart(4,"0")}`;const{data:created,error}=await sb.from("eleves").insert({...rest,matricule:mat,etablissement_id:etablissementId,inscription_date:TODAY,notes:{}}).select().single();if(!error){load();showToast("Élève inscrit");return created;}else{showToast(error.message,"error");return null;}},
     updateEleve: async(id,form)=>{const{error}=await sb.from("eleves").update(form).eq("id",id);if(!error){load();showToast("Élève modifié");}else showToast(error.message,"error");},
     deleteEleve: async(id)=>{await sb.from("eleves").delete().eq("id",id);load();showToast("Élève supprimé");},
+    importEleves: async(rows,prefixe,classe_id)=>{let count=data.eleves.length;const payload=rows.map(r=>{count++;return {...r,classe_id,matricule:`${prefixe||"EL"}-${String(count).padStart(4,"0")}`,etablissement_id:etablissementId,inscription_date:TODAY,notes:{}};});const{error}=await sb.from("eleves").insert(payload);if(!error){load();showToast(`${payload.length} élève(s) importé(s)`);}else showToast(error.message,"error");},
     promouvoirEleves: async(moves)=>{for(const mv of moves){await sb.from("eleves").update({classe_id:mv.classe_id}).eq("id",mv.id);}load();showToast(`${moves.length} élève(s) promu(s)`);},
 
     saveNotes: async(eleveId,periode,matiereId,note)=>{
@@ -1800,6 +1849,38 @@ function Eleves({data,ops,etab}) {
   const [modal,setModal]=useState(null);const [search,setSearch]=useState("");const [filterCl,setFilterCl]=useState("");
   const [form,setForm]=useState({nom:"",prenom:"",genre:"",classe_id:"",date_naissance:"",lieu_naissance:"",tuteur:"",pere:"",tel_pere:"",mere:"",tel_mere:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});
   const [loading,setLoading]=useState(false);const [err,setErr]=useState("");
+  // Import / Export Excel
+  const [impOpen,setImpOpen]=useState(false);const [impRows,setImpRows]=useState([]);const [impClasse,setImpClasse]=useState("");const [impLoading,setImpLoading]=useState(false);const [impErr,setImpErr]=useState("");
+  const impFileRef=useRef(null);
+  const mapRow=(row)=>{
+    const get=(keys,excl=[])=>{const found=Object.keys(row).find(h=>{const hl=h.toLowerCase().trim();if(excl.some(x=>hl.includes(x)))return false;return keys.some(k=>hl===k||hl.includes(k));});return found?String(row[found]).trim():"";};
+    const gRaw=get(["genre","sexe"]);const genre=/^\s*(f|fille|fémin|femin)/i.test(gRaw)?"F":/^\s*(m|gar|mascul|h)/i.test(gRaw)?"M":"";
+    return {nom:get(["nom"],["prénom","prenom"]),prenom:get(["prénom","prenom"]),genre,date_naissance:get(["date de naissance","naissance","date_naissance"]),lieu_naissance:get(["lieu"]),pere:get(["père","pere"],["tél","tel","numéro","numero"]),tel_pere:get(["tél père","tel pere","téléphone père","tel du père","tel père"]),mere:get(["mère","mere"],["tél","tel","numéro","numero"]),tel_mere:get(["tél mère","tel mere","téléphone mère","tel mère"]),telephone:get(["téléphone","telephone","tel","contact"],["père","pere","mère","mere"]),tuteur:get(["tuteur","tutrice"])};
+  };
+  const eleveRows=()=>data.eleves.map(e=>{const cl=data.classes.find(c=>c.id===e.classe_id);return {Matricule:e.matricule,Nom:e.nom,"Prénom":e.prenom,Genre:e.genre||"",Classe:cl?cl.nom:"","Date de naissance":e.date_naissance||"","Lieu de naissance":e.lieu_naissance||"","Père":e.pere||"","Tél père":e.tel_pere||"","Mère":e.mere||"","Tél mère":e.tel_mere||"","Téléphone":e.telephone||"",Tuteur:e.tuteur||""};});
+  const doExport=async()=>{
+    const rows=eleveRows();
+    if(!rows.length){alert(t("imp_rien_exporter"));return;}
+    try{await exportXLSX(rows,`eleves_${(etab.nom||"ecole").replace(/\s+/g,"_")}.xlsx`,"Élèves");}catch(e2){alert(e2.message);}
+  };
+  const doExportWord=()=>{
+    const rows=eleveRows();
+    if(!rows.length){alert(t("imp_rien_exporter"));return;}
+    exportDOC(rows,`eleves_${(etab.nom||"ecole").replace(/\s+/g,"_")}.doc`,`${t("nav_eleves")} — ${etab.nom||""}`);
+  };
+  const pickImport=async(ev)=>{
+    const file=ev.target.files?.[0];if(!file)return;setImpErr("");
+    try{const raw=await readXLSX(file);const mapped=raw.map(mapRow).filter(r=>r.nom&&r.prenom);setImpRows(mapped);if(!mapped.length)setImpErr(t("imp_aucun"));}catch(e2){setImpErr(e2.message);}
+    if(impFileRef.current)impFileRef.current.value="";
+  };
+  const confirmImport=async()=>{
+    const cid=parseInt(impClasse)||data.classes[0]?.id;if(!cid)return;
+    const norm=s=>(s||"").trim().toLowerCase().replace(/\s+/g," ");
+    const existing=data.eleves.filter(e=>e.classe_id===cid);
+    const toAdd=impRows.filter(r=>!existing.some(e=>norm(e.nom)===norm(r.nom)&&norm(e.prenom)===norm(r.prenom)));
+    if(!toAdd.length){setImpErr(t("imp_doublons"));return;}
+    setImpLoading(true);await ops.importEleves(toAdd,etab.prefixe,cid);setImpLoading(false);setImpOpen(false);setImpRows([]);
+  };
   const save=async()=>{
     if(!form.nom||!form.prenom)return;
     // Anti-doublon : même nom+prénom dans la même classe
@@ -1826,8 +1907,11 @@ function Eleves({data,ops,etab}) {
   return(
     <div>
       <SHdr title={t("nav_eleves")+" 👨‍🎓"} sub={`${data.eleves.length} ${t("el_total")}`} action={
-        <div style={{display:"flex",gap:8}}>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t("el_search")} style={{padding:"8px 12px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",width:170}}/>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t("el_search")} style={{padding:"8px 12px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",width:150}}/>
+          <Btn ch={t("imp_export")} v="ghost" onClick={doExport}/>
+          <Btn ch={t("imp_word")} v="ghost" onClick={doExportWord}/>
+          <Btn ch={t("imp_import")} v="ghost" onClick={()=>{setImpErr("");setImpRows([]);setImpClasse(classesCycle[0]?.id||data.classes[0]?.id||"");setImpOpen(true);}}/>
           <Btn ch={t("el_inscrire")} v="primary" onClick={()=>{setErr("");setForm({nom:"",prenom:"",genre:"",classe_id:classesCycle[0]?.id||data.classes[0]?.id||"",date_naissance:"",lieu_naissance:"",tuteur:"",pere:"",tel_pere:"",mere:"",tel_mere:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});setModal("add");}}/>
         </div>
       }/>
@@ -1898,6 +1982,20 @@ function Eleves({data,ops,etab}) {
         </label>}
         {err&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,marginTop:8}}>{err}</div>}
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:6}}><Btn ch={t("btn_annuler")} v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":t("btn_save")} v="success" onClick={save} disabled={loading}/></div>
+      </Modal>}
+      {impOpen&&<Modal title={t("imp_titre")} onClose={()=>setImpOpen(false)} w={540}>
+        <div style={{fontSize:12,color:"#64748b",marginBottom:12}}>{t("imp_intro")}</div>
+        <Slt label={t("el_classe")} value={impClasse} onChange={e=>setImpClasse(e.target.value)} opts={data.classes.map(c=>({v:c.id,l:txt(c.nom,c.nom_ar)}))}/>
+        <label style={{display:"inline-block",padding:"9px 14px",background:"#1a56db",color:"#fff",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer",marginTop:2}}>{t("imp_choisir_fichier")}
+          <input ref={impFileRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={pickImport}/>
+        </label>
+        {impRows.length>0&&<div style={{marginTop:12,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:9,padding:"10px 13px"}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#166534"}}>{impRows.length} {t("imp_detectes")}</div>
+          <div style={{fontSize:11,color:"#15803d",marginTop:3}}>{impRows.slice(0,6).map(r=>`${r.prenom} ${r.nom}`).join(", ")}{impRows.length>6?"…":""}</div>
+        </div>}
+        {impErr&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,marginTop:8}}>{impErr}</div>}
+        <div style={{fontSize:11,color:"#94a3b8",marginTop:10}}>{t("imp_colonnes")}</div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}><Btn ch={t("btn_annuler")} v="ghost" onClick={()=>setImpOpen(false)}/><Btn ch={impLoading?"...":t("imp_importer")} v="success" onClick={confirmImport} disabled={impLoading||impRows.length===0}/></div>
       </Modal>}
     </div>
   );
@@ -2334,9 +2432,12 @@ function Paiements({data,ops,etab}) {
     </tr>);
   };
   const classesCycle=data.classes.filter(c=>(c.niveau||"Primaire")===payCycle);
+  const paieRows=()=>data.paiements.map(p=>{const el=data.eleves.find(e=>e.id===p.eleve_id);const cl=el&&data.classes.find(c=>c.id===el.classe_id);return {"Reçu":p.id,"Élève":el?`${el.prenom} ${el.nom}`:"",Matricule:el?.matricule||"",Classe:cl?cl.nom:"",Type:p.type||"","Tranche/Mois":p.mois||"",Montant:p.montant||0,Moyen:p.moyen||"",Date:p.date||"",Note:p.note||""};});
+  const doExportPaie=async()=>{const rows=paieRows();if(!rows.length){alert(t("imp_rien_exporter"));return;}try{await exportXLSX(rows,`paiements_${(etab.nom||"ecole").replace(/\s+/g,"_")}.xlsx`,"Paiements");}catch(e2){alert(e2.message);}};
+  const doExportPaieWord=()=>{const rows=paieRows();if(!rows.length){alert(t("imp_rien_exporter"));return;}exportDOC(rows,`paiements_${(etab.nom||"ecole").replace(/\s+/g,"_")}.doc`,`${t("nav_paiements")} — ${etab.nom||""}`);};
   return(
     <div>
-      <SHdr title={t("nav_paiements")+" 💰"} sub={`${t("pa_total_encaisse")} : ${fmtMoney(totalEncaisse,devise)} · ${t("pa_mode")} : ${isTranche?t("pa_tranches"):t("pa_mensualites")}`}/>
+      <SHdr title={t("nav_paiements")+" 💰"} sub={`${t("pa_total_encaisse")} : ${fmtMoney(totalEncaisse,devise)} · ${t("pa_mode")} : ${isTranche?t("pa_tranches"):t("pa_mensualites")}`} action={data.paiements.length>0?<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn ch={t("imp_export")} v="ghost" onClick={doExportPaie}/><Btn ch={t("imp_word")} v="ghost" onClick={doExportPaieWord}/></div>:null}/>
       {data.eleves.length===0?<Card><Empty icon="💰" text={t("pa_inscrivez")}/></Card>:(<>
         {/* Onglets cycles */}
         <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
