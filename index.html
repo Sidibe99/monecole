@@ -154,7 +154,17 @@ const calcMoy = (notes,mats,periode) => {
   mats.forEach(m=>{ const n=periode?notes?.[periode]?.[m.id]:notes?.[m.id]; if(n!=null&&n!==""){tot+=parseFloat(n)*m.coefficient;cf+=m.coefficient;} });
   return cf>0?(tot/cf).toFixed(2):"—";
 };
-const periodesList = sys => sys==="semestre"?["Semestre 1","Semestre 2"]:["Trimestre 1","Trimestre 2","Trimestre 3"];
+const PERIODES_DEFAUT = sys => sys==="semestre"?["Semestre 1","Semestre 2"]:["Trimestre 1","Trimestre 2","Trimestre 3"];
+// Renvoie la liste des périodes : personnalisée si l'école en a défini une, sinon le préset (trimestre/semestre).
+// Accepte un objet etab (recommandé) ou, par rétro-compatibilité, une chaîne systeme.
+const periodesList = arg => {
+  if(arg && typeof arg==="object"){
+    const p=arg.periodes;
+    if(Array.isArray(p)){ const c=p.map(x=>(x||"").toString().trim()).filter(Boolean); if(c.length) return c; }
+    return PERIODES_DEFAUT(arg.systeme);
+  }
+  return PERIODES_DEFAUT(arg);
+};
 const TODAY = new Date().toISOString().split("T")[0];
 
 // ── PAIEMENTS : échéances ─────────────────────────────────────────────────────
@@ -193,11 +203,12 @@ const logoBlock = (etab={}, opts={}) => {
   const l1=etab.logo||"", l2=etab.logo2||"";
   const disp=opts.dispo||etab.logo_disposition||"centre";
   if(!l1&&!l2) return "";
-  if(disp==="gauche") return `<div style="text-align:left;margin-bottom:6px">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
-  if(disp==="droite") return `<div style="text-align:right;margin-bottom:6px">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
-  if(disp==="deux_cotes") return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div>${l1?logoImg(l1):""}</div><div>${l2?logoImg(l2):""}</div></div>`;
+  const mb=opts.compact?"0":"6px"; // compact = sans marge (pour insertion dans une ligne)
+  if(disp==="gauche") return `<div style="text-align:left;margin-bottom:${mb}">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
+  if(disp==="droite") return `<div style="text-align:right;margin-bottom:${mb}">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
+  if(disp==="deux_cotes") return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${mb}"><div>${l1?logoImg(l1):""}</div><div>${l2?logoImg(l2):""}</div></div>`;
   // centre (par défaut) : les deux logos centrés. L'ancienne valeur centre_haut retombe ici (= centre).
-  return `<div style="text-align:center;margin-bottom:6px;display:flex;gap:14px;justify-content:center;align-items:center">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
+  return `<div style="text-align:center;margin-bottom:${mb};display:flex;gap:14px;justify-content:center;align-items:center">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
 };
 
 
@@ -234,7 +245,7 @@ const officialHeader = (etab={}, opts={}) => {
   const ar = etab.ar||{};
   // En-tête bilingue : pays FR à gauche, AR à droite ; idem ministère
   if(bil){
-    const logoPosB = etab.logo_position || "sousdevise";
+    const logoPosB = etab.logo_position || "milieu";
     const lblocB = logoBlock(etab);
     return `<div class="oh">
       ${logoPosB==="haut"?lblocB:""}
@@ -270,11 +281,15 @@ const officialHeader = (etab={}, opts={}) => {
       ${docTitle?`<div class="oh-title" style="display:flex;justify-content:space-between"><span>${docTitle}</span><span style="direction:rtl;font-family:'Traditional Arabic','Amiri',serif">${opts.docTitleAr||""}</span></div>`:""}
     </div>`;
   }
-  // Position verticale du logo : "haut" (au-dessus de la République) ou "sousdevise" (sous la devise — standard officiel, défaut)
-  const logoPos = etab.logo_position || "sousdevise";
-  const lbloc = logoBlock(etab); // l'alignement horizontal (centre/gauche/droite/deux côtés) vient de logo_disposition
+  // Position verticale du logo :
+  //  "haut"       → au-dessus de la République
+  //  "sousdevise" → sous la devise, sur sa propre ligne centrée
+  //  "milieu"     → au centre de la ligne d'infos (entre Ministère et Année) — défaut
+  const logoPos = etab.logo_position || "milieu";
+  const lbloc = logoBlock(etab); // alignement horizontal via logo_disposition
   const logoEnHaut = logoPos==="haut" ? lbloc : "";
-  const logoSousDevise = logoPos!=="haut" ? lbloc : "";
+  const logoSousDevise = logoPos==="sousdevise" ? lbloc : "";
+  const logoMilieu = logoPos==="milieu" ? `<div class="oh-mid">${logoBlock(etab,{dispo:"centre",compact:true})}</div>` : "";
   return `<div class="oh">
     ${logoEnHaut}
     <div class="oh-top">
@@ -292,6 +307,7 @@ const officialHeader = (etab={}, opts={}) => {
         ${classe?`<div><b>Classe :</b> ${classe}</div>`:""}
         ${etab.codeMEN?`<div><b>Code MEN :</b> ${etab.codeMEN}</div>`:""}
       </div>
+      ${logoMilieu}
       <div class="oh-right">
         ${etab.annee?`<div><b>Année :</b> ${etab.annee}</div>`:""}
         ${etab.telephone?`<div>Tél : ${etab.telephone}</div>`:""}
@@ -321,9 +337,11 @@ const printHTML = (html, title="MonEcole", opts={}) => {
     .oh-top{text-align:center;margin-bottom:10px}
     .oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}
     .oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}
-    .oh-body{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}
+    .oh-body{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}
+    .oh-left,.oh-right{flex:1}
     .oh-left>div,.oh-right>div{margin:1px 0}
     .oh-right{text-align:right}
+    .oh-mid{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 6px}
     .oh-title{text-align:center;margin:12px auto 0;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid ${col};border-radius:8px;padding:7px 18px;background:${col}12;display:block;max-width:60%}
     /* Anciens en-têtes conservés pour compat */
     .header{text-align:center;border-bottom:3px solid ${col};padding-bottom:14px;margin-bottom:18px}
@@ -697,7 +715,7 @@ function Dashboard({data,etab,setPage,currentUser}) {
   const classeNom=id=>data.classes.find(c=>c.id===id)?.nom||"—";
   const profNom=id=>{const p=data.professeurs?.find(x=>x.id===id);return p?`${p.prenom} ${p.nom}`:"";};
   const devise=etab.devise||"GNF";
-  const periodes=periodesList(etab.systeme);
+  const periodes=periodesList(etab);
   const lastP=periodes[periodes.length-1];
   if(data.eleves.length===0) return(
     <div>
@@ -1503,7 +1521,7 @@ function Eleves({data,ops,etab}) {
 
 // ── NOTES ─────────────────────────────────────────────────────────────────────
 function Notes({data,ops,etab,currentUser}) {
-  const periodes=periodesList(etab.systeme);
+  const periodes=periodesList(etab);
   const [periode,setPeriode]=useState(periodes[0]);
   const [classeId,setClasseId]=useState(data.classes[0]?.id||"");
   const [localNotes,setLocalNotes]=useState({});
@@ -1616,7 +1634,7 @@ function Notes({data,ops,etab,currentUser}) {
 
 // ── BULLETINS ─────────────────────────────────────────────────────────────────
 function Bulletins({data,etab}) {
-  const periodes=periodesList(etab.systeme);
+  const periodes=periodesList(etab);
   const [selected,setSelected]=useState(null);
   const [periode,setPeriode]=useState(periodes[0]);
   const [modeBul,setModeBul]=useState("periode"); // "periode" | "annuel"
@@ -1689,11 +1707,11 @@ function Bulletins({data,etab}) {
         </div>
         {modeBul==="annuel"?(
           <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}}>
-            <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-title{text-align:center;margin-top:12px;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid #1a56db;border-radius:8px;padding:7px 0;background:#eff6ff}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{border:1px solid #d8dee9;padding:7px 9px;font-size:12px}th{background:#1a56db;color:#fff;font-weight:700}.grid{display:grid;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:14px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e)}}/>
+            <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left,.oh-right{flex:1}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-mid{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 6px}.oh-title{text-align:center;margin-top:12px;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid #1a56db;border-radius:8px;padding:7px 0;background:#eff6ff}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{border:1px solid #d8dee9;padding:7px 9px;font-size:12px}th{background:#1a56db;color:#fff;font-weight:700}.grid{display:grid;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:14px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e)}}/>
           </div>
         ):(
         <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}}>
-          <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-title{text-align:center;margin:12px auto 0;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid ${etab.theme_couleur||"#1a56db"};border-radius:8px;padding:7px 18px;background:${(etab.theme_couleur||"#1a56db")}12;display:block;max-width:60%}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{border:1px solid #d8dee9;padding:7px 9px;font-size:12px}th{background:${etab.theme_couleur||"#1a56db"};color:#fff;font-weight:700}.grid{display:grid;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:14px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e,periodes.slice(0,periodes.indexOf(periode)+1))}}/>
+          <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left,.oh-right{flex:1}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-mid{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 6px}.oh-title{text-align:center;margin:12px auto 0;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid ${etab.theme_couleur||"#1a56db"};border-radius:8px;padding:7px 18px;background:${(etab.theme_couleur||"#1a56db")}12;display:block;max-width:60%}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{border:1px solid #d8dee9;padding:7px 9px;font-size:12px}th{background:${etab.theme_couleur||"#1a56db"};color:#fff;font-weight:700}.grid{display:grid;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:14px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e,periodes.slice(0,periodes.indexOf(periode)+1))}}/>
         </div>
         )}
       </div>
@@ -2234,7 +2252,7 @@ function Utilisateurs({data,ops,currentUser}) {
 function Parametres({etab,data,ops,onEtabUpdate}) {
   const [form,setForm]=useState({
     nom:etab.nom||"",devise_txt:etab.devise_txt||"",annee:etab.annee||"",devise:etab.devise||"GNF",
-    systeme:etab.systeme||"trimestre",adresse:etab.adresse||"",telephone:etab.telephone||"",email:etab.email||"",
+    systeme:etab.systeme||"trimestre",periodes:Array.isArray(etab.periodes)?etab.periodes:null,adresse:etab.adresse||"",telephone:etab.telephone||"",email:etab.email||"",
     codeMEN:etab.codeMEN||"",prefixe:etab.prefixe||"",fraisInscription:etab.fraisInscription||"",mensualite:etab.mensualite||"",
     pays:etab.pays||"République de Guinée",devise_nationale:etab.devise_nationale||"Travail · Justice · Solidarité",
     ministere:etab.ministere||"Ministère de l'Éducation Nationale et de l'Alphabétisation",ire:etab.ire||"",dpe:etab.dpe||"",dsee:etab.dsee||"",
@@ -2247,7 +2265,7 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
     mode_maternelle:etab.mode_maternelle||"note",
     entete_lignes:Array.isArray(etab.entete_lignes)?etab.entete_lignes:[],
     moyens_paiement:Array.isArray(etab.moyens_paiement)&&etab.moyens_paiement.length?etab.moyens_paiement:["Espèces","Orange Money","MoMo","Carte Visa","Chèque"],
-    logo:etab.logo||"",logo2:etab.logo2||"",logo_disposition:(etab.logo_disposition==="centre_haut"?"centre":etab.logo_disposition)||"centre",logo_position:etab.logo_position||"sousdevise"
+    logo:etab.logo||"",logo2:etab.logo2||"",logo_app:etab.logo_app||"",logo_disposition:(etab.logo_disposition==="centre_haut"?"centre":etab.logo_disposition)||"centre",logo_position:etab.logo_position||"milieu"
   });
   const [loading,setLoading]=useState(false);
   const [saved,setSaved]=useState(false);
@@ -2294,11 +2312,42 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
     if(dvMode==="manuel"){const ws=[["m1","c1"],["m2","c2"],["m3","c3"]].filter(p=>dm[p[0]]);return ws.length?ws.map((p,i,a)=><span key={p[0]}><span style={{color:dm[p[1]]||"#334155"}}>{dm[p[0]]}</span>{i<a.length-1?sep:null}</span>):<span style={{color:"#94a3b8",fontWeight:400,fontStyle:"normal"}}>Saisissez les mots ci-dessous.</span>;}
     return <span style={{color:"#64748b"}}>{nat||"—"}</span>;
   };
+  // ── Périodes / compositions personnalisables ──
+  const effPeriodes = (Array.isArray(form.periodes)&&form.periodes.length)?form.periodes:PERIODES_DEFAUT(form.systeme);
+  const periodesCustom = Array.isArray(form.periodes)&&form.periodes.length>0;
+  const setPeriodes = arr => setForm(f=>({...f,periodes:arr}));
+  const renamePeriode = (i,val) => { const a=[...effPeriodes]; a[i]=val; setPeriodes(a); };
+  const removePeriode = i => setPeriodes(effPeriodes.filter((_,j)=>j!==i));
+  const addPeriode = () => setPeriodes([...effPeriodes, "Période "+(effPeriodes.length+1)]);
+  const PRESETS_PERIODES = [
+    {l:"3 trimestres", a:["Trimestre 1","Trimestre 2","Trimestre 3"]},
+    {l:"2 semestres", a:["Semestre 1","Semestre 2"]},
+    {l:"2 compositions", a:["Composition 1","Composition 2"]},
+    {l:"3 compositions", a:["Composition 1","Composition 2","Composition 3"]},
+    {l:"6 séquences", a:["Séquence 1","Séquence 2","Séquence 3","Séquence 4","Séquence 5","Séquence 6"]}
+  ];
   return(
     <div>
       <SHdr title="Établissement ⚙️" sub="Infos officielles, en-tête des documents et réglages — modifiables à tout moment"/>
       <Card s={{marginBottom:14}}>
-        <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>🖼️ Logos des documents</div>
+        <div style={{fontWeight:800,fontSize:13,color:"#0f172a",marginBottom:12}}>🖼️ Logos</div>
+        <div style={{background:"#eff6ff",border:"1px solid #dbeafe",borderRadius:11,padding:13,marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#1a56db",marginBottom:3}}>📱 Logo de l'application (interface)</div>
+          <div style={{fontSize:10.5,color:"#64748b",marginBottom:10}}>Affiché dans le menu de l'app — peut être différent des logos imprimés. Si vide, le logo de l'école ci-dessous est utilisé.</div>
+          <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+            <div style={{width:64,height:64,borderRadius:14,border:"2px dashed #93c5fd",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}>
+              {(form.logo_app||form.logo)?<img src={form.logo_app||form.logo} alt="logo app" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:<span style={{fontSize:24}}>🎓</span>}
+            </div>
+            <div style={{flex:1}}>
+              <label style={{display:"inline-block",padding:"7px 13px",background:"#1a56db",color:"#fff",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",marginBottom:7}}>📁 Téléverser
+                <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;if(f.size>500000){alert("Image trop lourde (max 500 Ko).");return;}const r=new FileReader();r.onload=()=>setForm(ff=>({...ff,logo_app:r.result}));r.readAsDataURL(f);}}/>
+              </label>
+              <Inp label="Ou lien (URL)" value={form.logo_app?.startsWith("data:")?"":(form.logo_app||"")} onChange={set("logo_app")} placeholder="https://..."/>
+              {form.logo_app&&<button onClick={()=>setForm(f=>({...f,logo_app:""}))} style={{marginTop:5,background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:6,padding:"4px 9px",cursor:"pointer",fontSize:10,fontWeight:700}}>🗑️ Retirer</button>}
+            </div>
+          </div>
+        </div>
+        <div style={{fontWeight:700,fontSize:12,color:"#334155",marginBottom:6}}>🖨️ Logos des documents (bulletins, reçus, fiches…)</div>
         <div style={{fontSize:11,color:"#64748b",marginBottom:14}}>Vous pouvez ajouter <b>deux images</b> : le logo de l'école et l'emblème/armoiries du pays. Puis choisissez leur disposition sur les imprimés.</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
           {/* Logo 1 : école */}
@@ -2351,11 +2400,12 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
         </div>
         <div style={{fontSize:10,color:"#94a3b8",marginTop:8}}>💡 Cette disposition s'applique à tous les documents. Vous pourrez l'ajuster ponctuellement à l'impression plus tard.</div>
         <div style={{fontSize:12,fontWeight:700,color:"#334155",margin:"16px 0 9px"}}>↕️ Position verticale du logo</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
           {[
-            {v:"sousdevise",t:"Sous la devise",sub:"Standard officiel : République → emblème → Ministère"},
+            {v:"milieu",t:"Au centre",sub:"Entre Ministère et Année (recommandé)"},
+            {v:"sousdevise",t:"Sous la devise",sub:"Sur sa propre ligne, sous la devise"},
             {v:"haut",t:"Au-dessus de la République",sub:"Logo tout en haut du document"}
-          ].map(o=>{const on=(form.logo_position||"sousdevise")===o.v;return(
+          ].map(o=>{const on=(form.logo_position||"milieu")===o.v;return(
             <button key={o.v} onClick={()=>setForm(f=>({...f,logo_position:o.v}))} style={{padding:"11px 13px",borderRadius:11,border:on?"2px solid #1a56db":"1.5px solid #e2e8f0",background:on?"#eff6ff":"#fff",cursor:"pointer",textAlign:"left",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
               <div style={{fontSize:12,fontWeight:700,color:on?"#1a56db":"#334155"}}>{on?"✓ ":""}{o.t}</div>
               <div style={{fontSize:10.5,color:"#94a3b8",marginTop:2}}>{o.sub}</div>
@@ -2492,6 +2542,27 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
           <Inp label="Préfixe matricule" value={form.prefixe} onChange={set("prefixe")} placeholder="CMC"/>
           <Inp label="Frais inscription (défaut)" type="number" value={form.fraisInscription} onChange={set("fraisInscription")}/>
           <Inp label="Mensualité (défaut)" type="number" value={form.mensualite} onChange={set("mensualite")}/>
+        </div>
+        <div style={{marginTop:16,background:"#f8fafc",border:"1px solid #eef2f7",borderRadius:11,padding:14}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#0f172a",marginBottom:3}}>🗓️ Périodes / Compositions de l'année</div>
+          <div style={{fontSize:11,color:"#64748b",marginBottom:11}}>Structurez l'année selon votre pays et votre organisation (trimestres, semestres, compositions, séquences…). Ces intitulés deviennent les colonnes des bulletins.</div>
+          <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:12}}>
+            {PRESETS_PERIODES.map(p=>{const on=periodesCustom&&effPeriodes.join("|")===p.a.join("|");return(
+              <button key={p.l} onClick={()=>setPeriodes(p.a)} style={{padding:"6px 11px",borderRadius:8,border:on?"2px solid #1a56db":"1.5px solid #e2e8f0",background:on?"#eff6ff":"#fff",color:on?"#1a56db":"#64748b",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{on?"✓ ":""}{p.l}</button>
+            );})}
+            <button onClick={()=>setForm(f=>({...f,periodes:null}))} style={{padding:"6px 11px",borderRadius:8,border:!periodesCustom?"2px solid #1a56db":"1.5px solid #e2e8f0",background:!periodesCustom?"#eff6ff":"#fff",color:!periodesCustom?"#1a56db":"#94a3b8",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{!periodesCustom?"✓ ":""}Selon système ({form.systeme==="semestre"?"2 sem.":"3 trim."})</button>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            {effPeriodes.map((p,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{width:22,height:22,borderRadius:6,background:"#1a56db",color:"#fff",fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
+                <input value={p} onChange={e=>renamePeriode(i,e.target.value)} placeholder={"Période "+(i+1)} style={{flex:1,padding:"8px 11px",borderRadius:8,border:"1.5px solid #e2e8f0",fontSize:13,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/>
+                {effPeriodes.length>1&&<button onClick={()=>removePeriode(i)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,width:30,height:30,cursor:"pointer",fontSize:13,flexShrink:0}}>🗑️</button>}
+              </div>
+            ))}
+          </div>
+          {effPeriodes.length<10&&<button onClick={addPeriode} style={{marginTop:9,background:"#eff6ff",color:"#1a56db",border:"1.5px dashed #93c5fd",borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>+ Ajouter une période</button>}
+          <div style={{fontSize:10,color:"#94a3b8",marginTop:9}}>💡 Sur le bulletin, choisir une période affiche aussi les précédentes + la moyenne cumulée. ⚠️ Renommer une période après avoir saisi des notes ne déplace pas les notes enregistrées sous l'ancien nom.</div>
         </div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16,alignItems:"center"}}>
           {saved&&<span style={{color:"#059669",fontSize:12,fontWeight:700}}>✓ Enregistré</span>}
@@ -2696,7 +2767,7 @@ function App() {
       <div style={{width:214,background:"linear-gradient(180deg,#0f172a 0%,#13203a 100%)",display:"flex",flexDirection:"column",flexShrink:0,boxShadow:"2px 0 18px rgba(15,23,42,.18)"}}>
         <div style={{padding:"18px 13px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
           <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:11}}>
-            <div style={{width:38,height:38,borderRadius:11,background:etab?.logo?"#fff":"linear-gradient(135deg,#1a56db,#1e40af)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,overflow:"hidden",border:etab?.logo?"1px solid rgba(255,255,255,0.15)":"none",boxShadow:"0 4px 12px -4px rgba(26,86,219,.6)"}}>{etab?.logo?<img src={etab.logo} alt="logo" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:"🎓"}</div>
+            <div style={{width:38,height:38,borderRadius:11,background:(etab?.logo_app||etab?.logo)?"#fff":"linear-gradient(135deg,#1a56db,#1e40af)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,overflow:"hidden",border:(etab?.logo_app||etab?.logo)?"1px solid rgba(255,255,255,0.15)":"none",boxShadow:"0 4px 12px -4px rgba(26,86,219,.6)"}}>{(etab?.logo_app||etab?.logo)?<img src={etab.logo_app||etab.logo} alt="logo" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:"🎓"}</div>
             <div><div style={{fontWeight:800,fontSize:16,color:"#fff",letterSpacing:-0.5,fontFamily:"'Sora',sans-serif"}}>MonEcole</div>{etab?.nom&&<div style={{fontSize:10,color:"rgba(255,255,255,0.55)",fontWeight:600,marginTop:1,lineHeight:1.2,maxWidth:135,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{etab.nom}</div>}</div>
           </div>
           <div style={{padding:"9px 11px",background:"rgba(255,255,255,0.06)",borderRadius:11,border:"1px solid rgba(255,255,255,0.07)",marginBottom:8}}>
