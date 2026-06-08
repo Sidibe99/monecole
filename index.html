@@ -210,6 +210,9 @@ const I18N = {
     login_sub:"Connectez-vous pour continuer", login_id:"Identifiant", login_pw:"Mot de passe",
     login_btn:"Se connecter →", login_btn_loading:"Connexion...", login_err:"Identifiant ou mot de passe incorrect.",
     logout:"Déconnexion", reconnect:"Reconnexion…", ui_taille:"Taille du texte",
+    notif_on:"Notifications activées", notif_off:"Activer les notifications", notif_refus:"Les notifications ont été refusées. Autorisez-les dans les réglages du navigateur pour ce site.",
+    notif_actif_titre:"MonEcole", notif_actif_corps:"Notifications activées ✓", notif_msg_titre:"Nouveau message", notif_msg_plus:"nouveaux messages",
+    notif_jour_titre:"Vos cours aujourd'hui", notif_jour_cours:"cours prévu", notif_jour_cours_p:"cours prévus", notif_cours_titre:"Cours dans 15 min",
     nav_dashboard:"Tableau de bord", nav_classes:"Classes", nav_matieres:"Matières", nav_eleves:"Élèves",
     nav_professeurs:"Professeurs", nav_emploi:"Emploi du temps", nav_notes:"Saisie des notes", nav_bulletins:"Bulletins",
     nav_fiche_notes:"Fiche vierge", nav_paiements:"Paiements", nav_presences:"Présences", nav_messagerie:"Messagerie",
@@ -384,6 +387,9 @@ const I18N = {
     login_sub:"سجّل الدخول للمتابعة", login_id:"اسم المستخدم", login_pw:"كلمة المرور",
     login_btn:"تسجيل الدخول ←", login_btn_loading:"جارٍ الدخول...", login_err:"اسم المستخدم أو كلمة المرور غير صحيحة.",
     logout:"تسجيل الخروج", reconnect:"إعادة الاتصال…", ui_taille:"حجم النص",
+    notif_on:"الإشعارات مفعّلة", notif_off:"تفعيل الإشعارات", notif_refus:"تم رفض الإشعارات. فعّلها من إعدادات المتصفح لهذا الموقع.",
+    notif_actif_titre:"مدرستي", notif_actif_corps:"تم تفعيل الإشعارات ✓", notif_msg_titre:"رسالة جديدة", notif_msg_plus:"رسائل جديدة",
+    notif_jour_titre:"حصصك اليوم", notif_jour_cours:"حصة", notif_jour_cours_p:"حصص", notif_cours_titre:"حصة بعد 15 دقيقة",
     nav_dashboard:"لوحة التحكم", nav_classes:"الفصول", nav_matieres:"المواد", nav_eleves:"التلاميذ",
     nav_professeurs:"المعلمون", nav_emploi:"الجدول الزمني", nav_notes:"إدخال الدرجات", nav_bulletins:"كشوف الدرجات",
     nav_fiche_notes:"ورقة فارغة", nav_paiements:"المدفوعات", nav_presences:"الحضور", nav_messagerie:"الرسائل",
@@ -556,6 +562,16 @@ const I18N = {
   }
 };
 let CURRENT_LANG = (()=>{ try{ return localStorage.getItem("monecole_lang")||"fr"; }catch(_){ return "fr"; } })();
+// ── Notifications navigateur (messages + rappels de cours) ──
+const NOTIF_OK = typeof window!=="undefined" && "Notification" in window;
+const notifsActives = () => { try{ return NOTIF_OK && localStorage.getItem("monecole_notifs")==="1" && Notification.permission==="granted"; }catch(_){ return false; } };
+const askNotif = async () => {
+  if(!NOTIF_OK) return false;
+  try{ let p=Notification.permission; if(p==="default") p=await Notification.requestPermission(); const ok=p==="granted"; try{localStorage.setItem("monecole_notifs", ok?"1":"0");}catch(_){} return ok; }catch(_){ return false; }
+};
+const notify = (title, body, tag) => {
+  try{ if(!notifsActives()) return; const n=new Notification(title,{body:body||"",tag:tag||"monecole"}); n.onclick=()=>{try{window.focus();}catch(_){}}; }catch(_){}
+};
 const t = (k)=> (I18N[CURRENT_LANG] && I18N[CURRENT_LANG][k]!=null) ? I18N[CURRENT_LANG][k] : (I18N.fr[k]!=null ? I18N.fr[k] : k);
 // Nom bilingue saisi par l'école : renvoie l'arabe si la langue est l'arabe ET qu'une version arabe existe, sinon le français.
 const txt = (fr, ar)=> (CURRENT_LANG==="ar" && ar!=null && String(ar).trim()!=="") ? ar : (fr||"");
@@ -3604,6 +3620,51 @@ function App() {
 
   const {data,syncStatus,toast,ops}=useSupabaseData(etab?.id);
 
+  // ── Notifications : nouveaux messages ──
+  const [notifEnabled,setNotifEnabled]=useState(()=>{try{return localStorage.getItem("monecole_notifs")==="1"&&NOTIF_OK&&Notification.permission==="granted";}catch(_){return false;}});
+  const lastMsgRef=useRef(null);
+  useEffect(()=>{
+    if(!currentUser){lastMsgRef.current=null;return;}
+    const msgs=data.messages||[];
+    const maxTs=msgs.reduce((mx,m)=>Math.max(mx,new Date(m.created_at).getTime()||0),0);
+    if(lastMsgRef.current===null){lastMsgRef.current=maxTs;return;}
+    const fresh=msgs.filter(m=>m.auteur_id!==currentUser.id&&(new Date(m.created_at).getTime()||0)>lastMsgRef.current);
+    lastMsgRef.current=Math.max(lastMsgRef.current,maxTs);
+    if(fresh.length&&(page!=="messagerie"||(typeof document!=="undefined"&&document.hidden))){
+      const last=fresh[fresh.length-1];
+      const apercu=last.texte?last.texte.slice(0,90):(Array.isArray(last.fichiers)&&last.fichiers.some(f=>(f.type||"").startsWith("audio/"))?"🎤 "+t("msg_voc"):"📎 "+t("msg_joindre"));
+      notify(t("notif_msg_titre"),fresh.length>1?`${fresh.length} ${t("notif_msg_plus")}`:`${last.auteur} : ${apercu}`,"monecole-msg");
+    }
+  },[data.messages,currentUser,page]);
+
+  // ── Notifications : rappels de cours du professeur ──
+  useEffect(()=>{
+    if(!currentUser||currentUser.role!=="Professeur")return;
+    const JOURS=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+    const mAut=Array.isArray(currentUser.matieres_autorisees)?currentUser.matieres_autorisees:[];
+    const cAut=Array.isArray(currentUser.classes_autorisees)?currentUser.classes_autorisees:[];
+    const matNom=id=>{const m=(data.matieres||[]).find(x=>x.id===id);return m?txt(m.nom,m.nom_ar):"";};
+    const classeNom=id=>(data.classes||[]).find(c=>c.id===id)?.nom||"";
+    const check=()=>{
+      if(!notifsActives())return;
+      const now=new Date();const jour=JOURS[now.getDay()];const jj=now.toISOString().slice(0,10);
+      const cours=(data.emploi_temps||[]).filter(c=>c.jour===jour)
+        .filter(c=>mAut.length===0||mAut.includes(c.matiere_id))
+        .filter(c=>cAut.length===0||cAut.includes(c.classe_id))
+        .sort((a,b)=>(a.debut||"").localeCompare(b.debut||""));
+      const dayKey="monecole_daily_"+currentUser.id+"_"+jj;
+      if(cours.length){try{if(localStorage.getItem(dayKey)!=="1"){localStorage.setItem(dayKey,"1");notify(t("notif_jour_titre"),`${cours.length} ${cours.length>1?t("notif_jour_cours_p"):t("notif_jour_cours")} — ${cours.map(c=>c.debut).filter(Boolean).join(", ")}`,"monecole-daily");}}catch(_){}}
+      cours.forEach(c=>{
+        if(!c.debut)return;const parts=c.debut.split(":");const h=parseInt(parts[0]);const mn=parseInt(parts[1]||"0");if(isNaN(h))return;
+        const start=new Date(now);start.setHours(h,mn,0,0);
+        const diff=(start-now)/60000;
+        const remKey="monecole_rem_"+currentUser.id+"_"+jj+"_"+c.id;
+        if(diff>0&&diff<=15){try{if(localStorage.getItem(remKey)!=="1"){localStorage.setItem(remKey,"1");notify(t("notif_cours_titre"),`${matNom(c.matiere_id)} · ${classeNom(c.classe_id)} — ${c.debut}${c.salle?" · 📍 "+c.salle:""}`,"monecole-cours-"+c.id);}}catch(_){}}
+      });
+    };
+    check();const iv=setInterval(check,60000);return ()=>clearInterval(iv);
+  },[currentUser,data.emploi_temps,data.matieres,data.classes]);
+
   // Applique la langue : met à jour la variable globale, le stockage et le sens d'écriture (RTL pour l'arabe)
   useEffect(()=>{ CURRENT_LANG=lang; try{localStorage.setItem("monecole_lang",lang);}catch(_){} try{document.documentElement.lang=lang;document.documentElement.dir=lang==="ar"?"rtl":"ltr";}catch(_){} },[lang]);
 
@@ -3729,6 +3790,7 @@ function App() {
             <button onClick={()=>setUiZoom(z=>Math.min(1.5,Math.round((z+0.05)*100)/100))} title="A+" style={{background:"rgba(255,255,255,0.1)",color:"#fff",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:15,fontWeight:800,lineHeight:1}}>A+</button>
           </div>
           <div style={{display:"flex",justifyContent:"center",marginBottom:9}}><LangToggle lang={lang} setLang={setLang} dark/></div>
+          <button className="me-btn" onClick={async()=>{if(notifEnabled){try{localStorage.setItem("monecole_notifs","0");}catch(_){}setNotifEnabled(false);}else{const ok=await askNotif();setNotifEnabled(ok);if(ok)notify(t("notif_actif_titre"),t("notif_actif_corps"),"monecole-test");else alert(t("notif_refus"));}}} style={{width:"100%",background:notifEnabled?"rgba(16,185,129,0.16)":"rgba(255,255,255,0.08)",color:notifEnabled?"#6ee7b7":"rgba(255,255,255,0.72)",border:notifEnabled?"1px solid rgba(16,185,129,0.25)":"1px solid rgba(255,255,255,0.12)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif",marginBottom:8}}>{notifEnabled?"🔔 "+t("notif_on"):"🔕 "+t("notif_off")}</button>
           <button className="me-btn" onClick={()=>{try{localStorage.removeItem("monecole_uid");}catch(_){}setCurrentUser(null);setScreen("login");}} style={{width:"100%",background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🚪 {t("logout")}</button>
         </div>
       </div>
