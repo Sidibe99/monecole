@@ -1026,15 +1026,27 @@ function Login({onLogin,lang,setLang}) {
   const [id,setId]=useState("");const [pw,setPw]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
   const go=async()=>{
     setLoading(true);setErr("");
+    const ident=id.trim();
     try {
-      const {data,error}=await sb.from("utilisateurs").select("*,etablissements(*)").eq("identifiant",id.trim()).limit(1).maybeSingle();
+      // 1) Tentative via Supabase Auth (email interne identifiant@monecole.app)
+      try{
+        const email=`${ident.toLowerCase()}@monecole.app`;
+        const {data:authData,error:authErr}=await sb.auth.signInWithPassword({email,password:pw});
+        if(!authErr&&authData&&authData.user){
+          const {data:row}=await sb.from("utilisateurs").select("*,etablissements(*)").eq("auth_id",authData.user.id).limit(1).maybeSingle();
+          if(row){ onLogin(row,row.etablissements); setLoading(false); return; }
+          // Pas de ligne liée : on referme la session Auth et on tente l'ancien système
+          try{await sb.auth.signOut();}catch(_){}
+        }
+      }catch(_){}
+      // 2) Repli : ancien système (hash dans la table), avec migration douce
+      const {data,error}=await sb.from("utilisateurs").select("*,etablissements(*)").eq("identifiant",ident).limit(1).maybeSingle();
       if(error||!data)throw new Error(t("login_err"));
       let ok=false;
       if(data.password_hash&&data.password_salt){
         const h=await hashPw(pw,data.password_salt);
         ok = !!h && h===data.password_hash;
       } else if(data.password!=null){
-        // Ancien compte en clair : on vérifie puis on convertit en haché (migration douce)
         ok = data.password===pw;
         if(ok){ try{ const salt=genSalt(); const h=await hashPw(pw,salt); if(h){ await sb.from("utilisateurs").update({password_hash:h,password_salt:salt,password:null}).eq("id",data.id); } }catch(_){} }
       }
@@ -3820,7 +3832,7 @@ function App() {
           </div>
           <div style={{display:"flex",justifyContent:"center",marginBottom:9}}><LangToggle lang={lang} setLang={setLang} dark/></div>
           <button className="me-btn" onClick={async()=>{if(notifEnabled){try{localStorage.setItem("monecole_notifs","0");}catch(_){}setNotifEnabled(false);}else{const ok=await askNotif();setNotifEnabled(ok);if(ok)notify(t("notif_actif_titre"),t("notif_actif_corps"),"monecole-test");else alert(t("notif_refus"));}}} style={{width:"100%",background:notifEnabled?"rgba(16,185,129,0.16)":"rgba(255,255,255,0.08)",color:notifEnabled?"#6ee7b7":"rgba(255,255,255,0.72)",border:notifEnabled?"1px solid rgba(16,185,129,0.25)":"1px solid rgba(255,255,255,0.12)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif",marginBottom:8}}>{notifEnabled?"🔔 "+t("notif_on"):"🔕 "+t("notif_off")}</button>
-          <button className="me-btn" onClick={()=>{try{localStorage.removeItem("monecole_uid");}catch(_){}setCurrentUser(null);setScreen("login");}} style={{width:"100%",background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🚪 {t("logout")}</button>
+          <button className="me-btn" onClick={()=>{try{sb.auth.signOut();}catch(_){}try{localStorage.removeItem("monecole_uid");}catch(_){}setCurrentUser(null);setScreen("login");}} style={{width:"100%",background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🚪 {t("logout")}</button>
         </div>
       </div>
       <div className="me-main" style={{flex:1,overflowY:"auto",zoom:uiZoom,padding:isMobile?"58px 13px 18px":"24px 26px"}}><div key={safePage} className="me-page">{pages[safePage]}</div></div>
