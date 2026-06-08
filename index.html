@@ -184,6 +184,25 @@ const exportDOC = (rows,filename,title="") => {
   const blob=new Blob(["\ufeff"+html],{type:"application/msword"});
   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
+// CSS document partagé (impression + export Word)
+const docCss = (col="#1a56db",police="'Segoe UI',Helvetica,Arial,sans-serif") => `
+*{box-sizing:border-box} body{font-family:${police};color:#1e293b;font-size:13px;line-height:1.5}
+table{width:100%;border-collapse:collapse;margin:6px 0} td,th{border:1px solid #d8dee9;padding:5px 8px;font-size:11px} th{background:${col};color:#fff;font-weight:700;text-align:left}
+.oh{margin-bottom:18px} .oh-top{text-align:center;margin-bottom:10px}
+.grid{background:#f7f9fc;padding:12px;border-radius:10px;margin-bottom:14px;border:1px solid #e8edf4}
+.grid>div{display:inline-block;margin-right:26px;vertical-align:top}
+.result{padding:10px;border-radius:10px;margin-top:10px;text-align:center}
+.result .stat{display:inline-block;margin:0 22px;text-align:center} .stat-val{font-size:24px;font-weight:900} .stat-lbl{font-size:10px;color:#666;text-transform:uppercase}
+.sign{margin-top:34px} .sign>span{display:inline-block;width:46%;text-align:center}
+.page-break{page-break-after:always}
+`;
+// Exporte un document HTML complet (avec en-tête, logo…) en .doc Word
+const exportDocHTML = (innerHtml,filename,etab={}) => {
+  const css=docCss(etab.theme_couleur,etab.theme_police);
+  const full=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>${css}</style></head><body>${innerHtml}</body></html>`;
+  const blob=new Blob(["\ufeff"+full],{type:"application/msword"});
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
 
 // ── i18n : Français / Arabe ───────────────────────────────────────────────────
 const I18N = {
@@ -312,6 +331,7 @@ const I18N = {
     msg_sub:"Général, messages privés et groupes · Temps réel", msg_canaux:"Canaux", msg_general:"💬 Général", msg_tout_le_monde:"Tout le monde",
     msg_groupes:"Groupes", msg_membres:"membre(s)", msg_prives:"Messages privés", msg_aucun_autre:"Aucun autre membre.",
     msg_aucun_message:"Aucun message. Démarrez la conversation !", msg_ecrire_ph:"Écrire un message...", msg_joindre:"Joindre des fichiers",
+    msg_voc:"Message vocal", msg_voc_enr:"Enregistrement…", msg_voc_stop:"Terminer", msg_voc_non_supporte:"L'enregistrement vocal n'est pas pris en charge par ce navigateur.", msg_voc_acces:"Impossible d'accéder au micro :",
     msg_creer_groupe:"Créer un groupe", msg_nom_groupe:"Nom du groupe *", msg_nom_groupe_ph:"Ex: Profs 6ème Année",
     msg_membres_groupe:"Membres du groupe", msg_aucun_a_ajouter:"Aucun autre membre à ajouter.", msg_auto_ajout:"Vous serez automatiquement ajouté au groupe.", msg_creer_btn:"Créer le groupe",
     us_sub:"Gérez les accès", us_th_user:"Utilisateur", us_th_ident:"Identifiant", us_th_role:"Rôle", us_th_actions:"Actions", us_empty:"Aucun utilisateur.",
@@ -485,6 +505,7 @@ const I18N = {
     msg_sub:"عام، رسائل خاصة ومجموعات · فوري", msg_canaux:"القنوات", msg_general:"💬 عام", msg_tout_le_monde:"الجميع",
     msg_groupes:"المجموعات", msg_membres:"عضو", msg_prives:"رسائل خاصة", msg_aucun_autre:"لا يوجد أعضاء آخرون.",
     msg_aucun_message:"لا رسائل. ابدأ المحادثة!", msg_ecrire_ph:"اكتب رسالة...", msg_joindre:"إرفاق ملفات",
+    msg_voc:"رسالة صوتية", msg_voc_enr:"جارٍ التسجيل…", msg_voc_stop:"إنهاء", msg_voc_non_supporte:"تسجيل الصوت غير مدعوم في هذا المتصفح.", msg_voc_acces:"تعذّر الوصول إلى الميكروفون:",
     msg_creer_groupe:"إنشاء مجموعة", msg_nom_groupe:"اسم المجموعة *", msg_nom_groupe_ph:"مثال: أساتذة السنة السادسة",
     msg_membres_groupe:"أعضاء المجموعة", msg_aucun_a_ajouter:"لا يوجد أعضاء آخرون للإضافة.", msg_auto_ajout:"ستُضاف تلقائيًا إلى المجموعة.", msg_creer_btn:"إنشاء المجموعة",
     us_sub:"إدارة الوصول", us_th_user:"المستخدم", us_th_ident:"المعرّف", us_th_role:"الدور", us_th_actions:"إجراءات", us_empty:"لا مستخدمين.",
@@ -776,7 +797,22 @@ const printHTML = (html, title="MonEcole", opts={}) => {
     .recu-foot{margin-top:16px;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8}
     .page-break{page-break-after:always} @media print{.noprint{display:none} body{padding:0}}
   </style></head><body>${html}</body></html>`);
-  w.document.close(); w.print();
+  w.document.close();
+  // Attendre que les images (logo, en-tête) soient chargées avant de lancer l'impression,
+  // sinon le logo n'apparaît pas dans le PDF.
+  let printed=false;
+  const doPrint=()=>{ if(printed)return; printed=true; try{w.focus();w.print();}catch(_){} };
+  try{
+    const imgs=Array.from(w.document.images||[]);
+    if(imgs.length){
+      let left=imgs.length;
+      const one=()=>{ left-=1; if(left<=0) setTimeout(doPrint,150); };
+      imgs.forEach(im=>{ if(im.complete) one(); else { im.addEventListener("load",one); im.addEventListener("error",one); } });
+      setTimeout(doPrint,2000); // garde-fou si une image traîne
+    } else {
+      setTimeout(doPrint,250);
+    }
+  }catch(_){ doPrint(); }
 };
 
 // ── UI ATOMS ──────────────────────────────────────────────────────────────────
@@ -1127,9 +1163,11 @@ function Dashboard({data,etab,setPage,currentUser}) {
   const heureStr=now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   const isProf=currentUser?.role==="Professeur";
   const autorisees=Array.isArray(currentUser?.matieres_autorisees)?currentUser.matieres_autorisees:[];
+  const classesAut=Array.isArray(currentUser?.classes_autorisees)?currentUser.classes_autorisees:[];
   const coursDuJour=(data.emploi_temps||[])
     .filter(c=>c.jour===jourNom)
-    .filter(c=>!isProf||autorisees.includes(c.matiere_id))
+    .filter(c=>!isProf||autorisees.length===0||autorisees.includes(c.matiere_id))
+    .filter(c=>classesAut.length===0||classesAut.includes(c.classe_id))
     .sort((a,b)=>(a.debut||"").localeCompare(b.debut||""));
   const matNom=id=>{const m=data.matieres.find(m=>m.id===id);return m?txt(m.nom,m.nom_ar):"—";};
   const classeNom=id=>data.classes.find(c=>c.id===id)?.nom||"—";
@@ -1137,17 +1175,52 @@ function Dashboard({data,etab,setPage,currentUser}) {
   const devise=etab.devise||"GNF";
   const periodes=periodesList(etab);
   const lastP=periodes[periodes.length-1];
+  const allowed=pagesForUser(currentUser);
+  const dashHeader=(
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:12}}>
+      <div><h2 style={{margin:0,fontSize:22,fontWeight:800,color:"#0f172a",fontFamily:"'Sora',sans-serif",letterSpacing:-0.5}}>{t("nav_dashboard")} 📊</h2><p style={{margin:"5px 0 0",color:"#64748b",fontSize:13}}>{etab.annee||""} · {etab.systeme==="semestre"?t("sys_sem"):t("sys_trim")} · {t("db_realtime")}</p></div>
+      <div style={{background:"linear-gradient(135deg,#0f172a,#1a56db)",borderRadius:15,padding:"12px 20px",color:"#fff",textAlign:"right",boxShadow:"0 8px 22px -8px rgba(26,86,219,.6)"}}>
+        <div style={{fontSize:12,fontWeight:600,color:"rgba(255,255,255,0.75)",textTransform:"capitalize"}}>{dateStr}</div>
+        <div style={{fontSize:26,fontWeight:900,fontFamily:"'Sora',sans-serif",letterSpacing:1,lineHeight:1.1}}>{heureStr}</div>
+      </div>
+    </div>
+  );
+  const scheduleCard=(
+    <Card s={{marginBottom:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontWeight:800,fontSize:14,color:"#0f172a",fontFamily:"'Sora',sans-serif"}}>🗓️ {t("db_cours_jour")} — {jourNom}</div>
+        <span style={{fontSize:11,color:"#94a3b8",fontWeight:600}}>{coursDuJour.length} {t("db_cours")}{isProf?" ("+t("db_mes_matieres")+")":""}</span>
+      </div>
+      {coursDuJour.length===0?<div style={{fontSize:12,color:"#94a3b8",textAlign:"center",padding:"14px 0"}}>{jourNom==="Dimanche"?t("db_repos"):t("db_aucun_cours")}</div>:(
+        <div style={{display:"flex",flexDirection:"column",gap:7}}>
+          {coursDuJour.map(c=>(
+            <div key={c.id} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 13px",background:"#f8fafc",borderRadius:10,borderLeft:"3px solid #1a56db"}}>
+              <div style={{fontSize:12,fontWeight:800,color:"#1a56db",minWidth:95}}>{c.debut} - {c.fin}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{matNom(c.matiere_id)} <span style={{fontWeight:600,color:"#94a3b8"}}>· {classeNom(c.classe_id)}</span></div>
+                <div style={{fontSize:11,color:"#64748b"}}>{profNom(c.prof_id)?`👨‍🏫 ${profNom(c.prof_id)}`:""}{c.salle?`${profNom(c.prof_id)?" · ":""}📍 ${c.salle}`:""}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+  const tuilesAcces=(
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:12}}>
+      {NAV.filter(n=>n.id!=="dashboard"&&allowed.includes(n.id)).map(n=>(
+        <div key={n.id} onClick={()=>setPage(n.id)} style={{background:"#fff",borderRadius:14,padding:22,border:"2px dashed #e2e8f0",textAlign:"center",cursor:"pointer",transition:"all 0.2s"}} onMouseOver={e=>{e.currentTarget.style.borderColor="#1a56db";e.currentTarget.style.background="#1a56db0a";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e2e8f0";e.currentTarget.style.background="#fff";}}>
+          <div style={{fontSize:30,marginBottom:8}}>{n.icon}</div>
+          <div style={{fontSize:13,fontWeight:700,color:"#475569"}}>{t("nav_"+n.id)}</div>
+        </div>
+      ))}
+    </div>
+  );
   if(data.eleves.length===0) return(
     <div>
-      <SHdr title={t("sh_bienvenue")+" 👋"} sub={txt(etab.nom,etab.nom_ar)}/>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:12}}>
-        {[{icon:"🏫",l:t("nav_classes"),p:"classes",c:"#3b82f6"},{icon:"📖",l:t("nav_matieres"),p:"matieres",c:"#8b5cf6"},{icon:"👨‍🎓",l:t("nav_eleves"),p:"eleves",c:"#10b981"},{icon:"👤",l:t("nav_utilisateurs"),p:"utilisateurs",c:"#f59e0b"}].map(item=>(
-          <div key={item.p} onClick={()=>setPage(item.p)} style={{background:"#fff",borderRadius:14,padding:22,border:"2px dashed #e2e8f0",textAlign:"center",cursor:"pointer",transition:"all 0.2s"}} onMouseOver={e=>{e.currentTarget.style.borderColor=item.c;e.currentTarget.style.background=item.c+"0a";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e2e8f0";e.currentTarget.style.background="#fff";}}>
-            <div style={{fontSize:30,marginBottom:8}}>{item.icon}</div>
-            <div style={{fontSize:13,fontWeight:700,color:"#475569"}}>{item.l}</div>
-          </div>
-        ))}
-      </div>
+      {dashHeader}
+      {scheduleCard}
+      {tuilesAcces}
     </div>
   );
   const moyennes=data.eleves.map(e=>{const m=calcMoy(e.notes||{},data.matieres,lastP);return m!=="—"?parseFloat(m):null;}).filter(Boolean);
@@ -1164,33 +1237,8 @@ function Dashboard({data,etab,setPage,currentUser}) {
   const cycleInfo=[{cyc:"Maternelle",emoji:"🟨",c:"#eab308",bg:"#fefce8"},{cyc:"Primaire",emoji:"🟦",c:"#3b82f6",bg:"#eff6ff"},{cyc:"Collège",emoji:"🟪",c:"#8b5cf6",bg:"#f5f3ff"},{cyc:"Lycée",emoji:"🟩",c:"#10b981",bg:"#ecfdf5"}];
   return(
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:12}}>
-        <div><h2 style={{margin:0,fontSize:22,fontWeight:800,color:"#0f172a",fontFamily:"'Sora',sans-serif",letterSpacing:-0.5}}>{t("nav_dashboard")} 📊</h2><p style={{margin:"5px 0 0",color:"#64748b",fontSize:13}}>{etab.annee||""} · {etab.systeme==="semestre"?t("sys_sem"):t("sys_trim")} · {t("db_realtime")}</p></div>
-        <div style={{background:"linear-gradient(135deg,#0f172a,#1a56db)",borderRadius:15,padding:"12px 20px",color:"#fff",textAlign:"right",boxShadow:"0 8px 22px -8px rgba(26,86,219,.6)"}}>
-          <div style={{fontSize:12,fontWeight:600,color:"rgba(255,255,255,0.75)",textTransform:"capitalize"}}>{dateStr}</div>
-          <div style={{fontSize:26,fontWeight:900,fontFamily:"'Sora',sans-serif",letterSpacing:1,lineHeight:1.1}}>{heureStr}</div>
-        </div>
-      </div>
-      {/* Emploi du temps du jour */}
-      <Card s={{marginBottom:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <div style={{fontWeight:800,fontSize:14,color:"#0f172a",fontFamily:"'Sora',sans-serif"}}>🗓️ {t("db_cours_jour")} — {jourNom}</div>
-          <span style={{fontSize:11,color:"#94a3b8",fontWeight:600}}>{coursDuJour.length} {t("db_cours")}{isProf?" ("+t("db_mes_matieres")+")":""}</span>
-        </div>
-        {coursDuJour.length===0?<div style={{fontSize:12,color:"#94a3b8",textAlign:"center",padding:"14px 0"}}>{jourNom==="Dimanche"?t("db_repos"):t("db_aucun_cours")}</div>:(
-          <div style={{display:"flex",flexDirection:"column",gap:7}}>
-            {coursDuJour.map(c=>(
-              <div key={c.id} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 13px",background:"#f8fafc",borderRadius:10,borderLeft:"3px solid #1a56db"}}>
-                <div style={{fontSize:12,fontWeight:800,color:"#1a56db",minWidth:95}}>{c.debut} - {c.fin}</div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{matNom(c.matiere_id)} <span style={{fontWeight:600,color:"#94a3b8"}}>· {classeNom(c.classe_id)}</span></div>
-                  <div style={{fontSize:11,color:"#64748b"}}>{profNom(c.prof_id)?`👨‍🏫 ${profNom(c.prof_id)}`:""}{c.salle?`${profNom(c.prof_id)?" · ":""}📍 ${c.salle}`:""}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+      {dashHeader}
+      {scheduleCard}
       {/* Répartition garçons / filles */}
       {(totG+totF)>0&&<div style={{display:"flex",gap:13,marginBottom:14,flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:150,background:"linear-gradient(135deg,#eff6ff,#fff)",borderRadius:16,padding:"16px 20px",border:"1px solid #3b82f622"}}>
@@ -2274,6 +2322,7 @@ function Bulletins({data,etab}) {
           </select>
           {modeBul==="periode"&&<select value={periode} onChange={ev=>setPeriode(ev.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{periodes.map(p=><option key={p} value={p}>{periodeLabel(etab,p)}</option>)}</select>}
           <Btn ch={t("pa_imprimer")} v="primary" onClick={()=>{const idx=periodes.indexOf(periode);const persCumul=periodes.slice(0,idx+1);printHTML(modeBul==="annuel"?bulletinAnnuelHTML(e):bulletinAnnuelHTML(e,persCumul),`Bulletin ${e.prenom} ${e.nom}`,{etab});}}/>
+          <Btn ch={t("imp_word")} v="ghost" onClick={()=>{const idx=periodes.indexOf(periode);const persCumul=periodes.slice(0,idx+1);const html=modeBul==="annuel"?bulletinAnnuelHTML(e):bulletinAnnuelHTML(e,persCumul);exportDocHTML(html,`bulletin_${e.prenom}_${e.nom}`.replace(/\s+/g,"_")+".doc",etab);}}/>
         </div>
         {modeBul==="annuel"?(
           <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}} dir="ltr">
@@ -2293,7 +2342,8 @@ function Bulletins({data,etab}) {
         <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
           <select value={periode} onChange={e=>setPeriode(e.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{periodes.map(p=><option key={p} value={p}>{periodeLabel(etab,p)}</option>)}</select>
           <select value={filterCl} onChange={e=>setFilterCl(e.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}><option value="">{t("bu_toutes_classes")}</option>{data.classes.map(c=><option key={c.id} value={c.id}>{txt(c.nom,c.nom_ar)}</option>)}</select>
-          <ExportBar name={`bulletins_${periode}`.replace(/\s+/g,"_")} title={`${t("nav_bulletins")} — ${periode}`} getRows={()=>filtered.map(e=>{const cl=data.classes.find(c=>c.id===e.classe_id);const bareme=baremeOf(cl?.niveau);const moy=parseFloat(calcMoy(e.notes||{},data.matieres,periode));const m=MENTION(isNaN(moy)?0:moy,bareme);const mates=data.eleves.filter(x=>x.classe_id===e.classe_id).map(x=>({id:x.id,v:parseFloat(calcMoy(x.notes||{},data.matieres,periode))||0})).sort((a,b)=>b.v-a.v);const rang=mates.findIndex(x=>x.id===e.id)+1;return {"Élève":`${e.prenom} ${e.nom}`,Matricule:e.matricule,Classe:cl?cl.nom:"","Moyenne":isNaN(moy)?"":moy.toFixed(2),"Mention":m.t,"Rang":`${rang}/${mates.length}`};})}/>
+          <Btn ch={t("imp_export")} v="ghost" onClick={async()=>{const rows=filtered.map(e=>{const cl=data.classes.find(c=>c.id===e.classe_id);const bareme=baremeOf(cl?.niveau);const moy=parseFloat(calcMoy(e.notes||{},data.matieres,periode));const m=MENTION(isNaN(moy)?0:moy,bareme);const mates=data.eleves.filter(x=>x.classe_id===e.classe_id).map(x=>({id:x.id,v:parseFloat(calcMoy(x.notes||{},data.matieres,periode))||0})).sort((a,b)=>b.v-a.v);const rang=mates.findIndex(x=>x.id===e.id)+1;return {"Élève":`${e.prenom} ${e.nom}`,Matricule:e.matricule,Classe:cl?cl.nom:"","Moyenne":isNaN(moy)?"":moy.toFixed(2),"Mention":m.t,"Rang":`${rang}/${mates.length}`};});if(!rows.length){alert(t("imp_rien_exporter"));return;}try{await exportXLSX(rows,`bulletins_${periode}`.replace(/\s+/g,"_")+".xlsx","Bulletins");}catch(e2){alert(e2.message);}}}/>
+          <Btn ch={t("imp_word")} v="ghost" onClick={()=>{if(!filtered.length){alert(t("imp_rien_exporter"));return;}const idx=periodes.indexOf(periode);const persCumul=periodes.slice(0,idx+1);const inner=filtered.map((e,i)=>`${bulletinAnnuelHTML(e,persCumul)}${i<filtered.length-1?'<div class="page-break"></div>':""}`).join("");exportDocHTML(inner,`bulletins_${periode}`.replace(/\s+/g,"_")+".doc",etab);}}/>
           <Btn ch={t("bu_tout_imprimer")} v="warn" onClick={()=>{if(!filtered.length)return;const idx=periodes.indexOf(periode);const persCumul=periodes.slice(0,idx+1);const html=filtered.map((e,i)=>`${bulletinAnnuelHTML(e,persCumul)}${i<filtered.length-1?'<div class="page-break"></div>':""}`).join("");printHTML(html,"Bulletins — "+periode,{etab});}}/>
         </div>
       }/>
@@ -2660,6 +2710,42 @@ function Messagerie({data,ops,currentUser}) {
   const [uploading,setUploading]=useState(false);
   const fileRef=useRef(null);
   const endRef=useRef(null);
+  // ── Message vocal ──
+  const [recording,setRecording]=useState(false);
+  const [recSecs,setRecSecs]=useState(0);
+  const recRef=useRef(null);const chunksRef=useRef([]);const recTimerRef=useRef(null);const streamRef=useRef(null);const recStartRef=useRef(0);
+  const fmtSecs=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  const pickMime=()=>{const cands=["audio/webm;codecs=opus","audio/webm","audio/mp4","audio/ogg;codecs=opus"];if(window.MediaRecorder&&MediaRecorder.isTypeSupported){for(const c of cands){if(MediaRecorder.isTypeSupported(c))return c;}}return "";};
+  const cleanupStream=()=>{try{streamRef.current&&streamRef.current.getTracks().forEach(tr=>tr.stop());}catch(_){}streamRef.current=null;};
+  const startRec=async()=>{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){alert(t("msg_voc_non_supporte"));return;}
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      streamRef.current=stream;
+      const mime=pickMime();
+      const mr=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream);
+      chunksRef.current=[];
+      mr.ondataavailable=e=>{if(e.data&&e.data.size>0)chunksRef.current.push(e.data);};
+      mr.onstop=async()=>{
+        const type=mr.mimeType||mime||"audio/webm";
+        const blob=new Blob(chunksRef.current,{type});
+        cleanupStream();
+        const duree=Math.max(1,Math.round((Date.now()-recStartRef.current)/1000));
+        if(blob.size>0){
+          const ext=type.includes("mp4")?"m4a":type.includes("ogg")?"ogg":"webm";
+          const file=new File([blob],`vocal-${Date.now()}.${ext}`,{type});
+          setUploading(true);const r=await ops.uploadFichier(file);if(r){r.duree=duree;setPending(p=>[...p,r]);}setUploading(false);
+        }
+      };
+      recStartRef.current=Date.now();
+      mr.start();recRef.current=mr;setRecording(true);setRecSecs(0);
+      recTimerRef.current=setInterval(()=>setRecSecs(s=>s+1),1000);
+    }catch(e){cleanupStream();alert(t("msg_voc_acces")+" "+(e.message||""));}
+  };
+  const stopRec=()=>{if(recTimerRef.current){clearInterval(recTimerRef.current);recTimerRef.current=null;}if(recRef.current&&recRef.current.state!=="inactive"){recRef.current.stop();}setRecording(false);};
+  const cancelRec=()=>{if(recTimerRef.current){clearInterval(recTimerRef.current);recTimerRef.current=null;}if(recRef.current){recRef.current.onstop=null;if(recRef.current.state!=="inactive")recRef.current.stop();}cleanupStream();chunksRef.current=[];setRecording(false);setRecSecs(0);};
+  useEffect(()=>{if(recording&&recSecs>=120)stopRec();},[recSecs,recording]);
+  useEffect(()=>()=>{if(recTimerRef.current)clearInterval(recTimerRef.current);cleanupStream();},[]);
 
   // Messages de la conversation active
   const msgs=(data.messages||[]).filter(m=>(m.conversation||"general")===active);
@@ -2728,7 +2814,15 @@ function Messagerie({data,ops,currentUser}) {
                 {!mine&&<div style={{fontSize:10,color:"#94a3b8",marginBottom:3}}>{m.auteur} · <Badge role={m.role}/></div>}
                 {m.texte&&<div style={{maxWidth:"72%",background:mine?"linear-gradient(135deg,#1a56db,#1e40af)":"#f1f5f9",color:mine?"#fff":"#0f172a",borderRadius:mine?"15px 15px 5px 15px":"15px 15px 15px 5px",padding:"9px 13px",fontSize:13,lineHeight:1.5,boxShadow:mine?"0 3px 10px -3px rgba(26,86,219,.5)":"none"}}>{m.texte}</div>}
                 {fichiers.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:7,marginTop:m.texte?5:0,justifyContent:mine?"flex-end":"flex-start",maxWidth:"72%"}}>
-                  {fichiers.map((f,k)=>{const isImg=(f.type||"").startsWith("image/");return isImg?(
+                  {fichiers.map((f,k)=>{const isImg=(f.type||"").startsWith("image/");const isAudio=(f.type||"").startsWith("audio/");return isAudio?(
+                    <div key={k} style={{display:"flex",alignItems:"center",gap:9,background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"8px 11px",minWidth:210}}>
+                      <span style={{fontSize:18}}>🎤</span>
+                      <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                        <span style={{fontSize:11,fontWeight:700,color:"#1a56db"}}>{t("msg_voc")}{f.duree?` · ${fmtSecs(f.duree)}`:""}</span>
+                        <audio controls src={f.url} style={{height:34,maxWidth:220}}/>
+                      </div>
+                    </div>
+                  ):isImg?(
                     <a key={k} href={f.url} target="_blank" rel="noreferrer"><img src={f.url} alt={f.nom} style={{maxWidth:160,maxHeight:160,borderRadius:11,border:"1px solid #e2e8f0",display:"block"}}/></a>
                   ):(
                     <a key={k} href={f.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:8,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"8px 12px",textDecoration:"none",color:"#1a56db",fontSize:12,fontWeight:700,maxWidth:200}}>📎 <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.nom}</span></a>
@@ -2742,17 +2836,29 @@ function Messagerie({data,ops,currentUser}) {
             {pending.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:7,padding:"10px 15px 0"}}>
               {pending.map((f,k)=>(
                 <div key={k} style={{display:"flex",alignItems:"center",gap:6,background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:9,padding:"4px 6px 4px 10px",fontSize:11,fontWeight:600,color:"#1a56db",maxWidth:160}}>
-                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(f.type||"").startsWith("image/")?"🖼️":"📎"} {f.nom}</span>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(f.type||"").startsWith("audio/")?`🎤 ${t("msg_voc")}${f.duree?` ${fmtSecs(f.duree)}`:""}`:`${(f.type||"").startsWith("image/")?"🖼️":"📎"} ${f.nom}`}</span>
                   <button onClick={()=>setPending(p=>p.filter((_,j)=>j!==k))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12,fontWeight:800}}>✕</button>
                 </div>
               ))}
             </div>}
+            {recording?(
+              <div style={{padding:"12px 15px",display:"flex",gap:10,alignItems:"center"}}>
+                <span style={{display:"flex",alignItems:"center",gap:9,flex:1,color:"#dc2626",fontWeight:700,fontSize:13}}>
+                  <span style={{width:11,height:11,borderRadius:"50%",background:"#dc2626",display:"inline-block"}}/>
+                  {t("msg_voc_enr")} {fmtSecs(recSecs)}
+                </span>
+                <button className="me-btn" onClick={cancelRec} title={t("btn_annuler")} style={{padding:"10px 13px",borderRadius:11,border:"1.5px solid #e2e8f0",background:"#fff",color:"#dc2626",cursor:"pointer",fontSize:14,fontWeight:800}}>✕</button>
+                <button className="me-btn" onClick={stopRec} title={t("msg_voc_stop")} style={{padding:"10px 16px",borderRadius:11,border:"none",background:"linear-gradient(135deg,#1a56db,#1e40af)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>■ {t("msg_voc_stop")}</button>
+              </div>
+            ):(
             <div style={{padding:"12px 15px",display:"flex",gap:9,alignItems:"center"}}>
               <input ref={fileRef} type="file" multiple onChange={pickFiles} style={{display:"none"}}/>
               <button className="me-btn" onClick={()=>fileRef.current?.click()} disabled={uploading} title={t("msg_joindre")} style={{padding:"10px 13px",borderRadius:11,border:"1.5px solid #e2e8f0",background:"#fff",cursor:"pointer",fontSize:16}}>{uploading?"⏳":"📎"}</button>
+              <button className="me-btn" onClick={startRec} disabled={uploading} title={t("msg_voc")} style={{padding:"10px 13px",borderRadius:11,border:"1.5px solid #e2e8f0",background:"#fff",cursor:"pointer",fontSize:16}}>🎤</button>
               <input value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder={t("msg_ecrire_ph")} style={{flex:1,padding:"10px 14px",borderRadius:11,border:"1.5px solid #e2e8f0",fontSize:13,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/>
               <button className="me-btn" onClick={send} disabled={(!msg.trim()&&pending.length===0)||uploading} style={{padding:"10px 18px",borderRadius:11,border:"none",background:(msg.trim()||pending.length)?"linear-gradient(135deg,#1a56db,#1e40af)":"#e2e8f0",color:(msg.trim()||pending.length)?"#fff":"#94a3b8",fontSize:14,fontWeight:700,cursor:(msg.trim()||pending.length)?"pointer":"not-allowed",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>→</button>
             </div>
+            )}
           </div>
         </Card>
       </div>
@@ -3463,6 +3569,9 @@ function App() {
   useEffect(()=>{const onR=()=>{try{setIsMobile(window.innerWidth<860);}catch(_){}};window.addEventListener("resize",onR);return ()=>window.removeEventListener("resize",onR);},[]);
   useEffect(()=>{try{localStorage.setItem("monecole_page",page);}catch(_){}},[page]);
   useEffect(()=>{try{localStorage.setItem("monecole_zoom",String(uiZoom));}catch(_){}},[uiZoom]);
+  const [msgSeen,setMsgSeen]=useState(0);
+  useEffect(()=>{if(!currentUser)return;try{setMsgSeen(parseInt(localStorage.getItem("monecole_msg_seen_"+currentUser.id)||"0")||0);}catch(_){}},[currentUser]);
+  useEffect(()=>{if(page==="messagerie"&&currentUser){const now=Date.now();try{localStorage.setItem("monecole_msg_seen_"+currentUser.id,String(now));}catch(_){}setMsgSeen(now);}},[page,currentUser]);
 
   const {data,syncStatus,toast,ops}=useSupabaseData(etab?.id);
 
@@ -3595,6 +3704,13 @@ function App() {
         </div>
       </div>
       <div className="me-main" style={{flex:1,overflowY:"auto",zoom:uiZoom,padding:isMobile?"58px 13px 18px":"24px 26px"}}><div key={safePage} className="me-page">{pages[safePage]}</div></div>
+      {allowed.includes("messagerie")&&safePage!=="messagerie"&&(()=>{
+        const unread=currentUser?(data.messages||[]).filter(m=>m.auteur_id!==currentUser.id&&new Date(m.created_at).getTime()>msgSeen).length:0;
+        return <button onClick={()=>setPage("messagerie")} title={t("nav_messagerie")} aria-label={t("nav_messagerie")} style={{position:"fixed",right:isMobile?16:26,bottom:isMobile?16:26,zIndex:80,width:56,height:56,borderRadius:"50%",border:"none",cursor:"pointer",background:"linear-gradient(135deg,#1a56db,#1e40af)",color:"#fff",fontSize:24,boxShadow:"0 10px 26px -6px rgba(26,86,219,.7)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          💬
+          {unread>0&&<span style={{position:"absolute",top:-3,right:-3,minWidth:21,height:21,padding:"0 5px",borderRadius:11,background:"#ef4444",color:"#fff",fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",border:"2px solid #fff",boxSizing:"border-box"}}>{unread>99?"99+":unread}</span>}
+        </button>;
+      })()}
     </div>
   );
 }
