@@ -252,11 +252,12 @@ const logoBlock = (etab={}, opts={}) => {
   const disp=opts.dispo||etab.logo_disposition||"centre";
   if(!l1&&!l2) return "";
   const mb=opts.compact?"0":"6px"; // compact = sans marge (pour insertion dans une ligne)
-  if(disp==="gauche") return `<div style="text-align:left;margin-bottom:${mb}">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
-  if(disp==="droite") return `<div style="text-align:right;margin-bottom:${mb}">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
-  if(disp==="deux_cotes") return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${mb}"><div>${l1?logoImg(l1):""}</div><div>${l2?logoImg(l2):""}</div></div>`;
+  const H=opts.h; // hauteur d'image éventuelle (sinon défaut de logoImg)
+  if(disp==="gauche") return `<div style="text-align:left;margin-bottom:${mb}">${l1?logoImg(l1,H):""}${l2?logoImg(l2,H):""}</div>`;
+  if(disp==="droite") return `<div style="text-align:right;margin-bottom:${mb}">${l1?logoImg(l1,H):""}${l2?logoImg(l2,H):""}</div>`;
+  if(disp==="deux_cotes") return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${mb}"><div>${l1?logoImg(l1,H):""}</div><div>${l2?logoImg(l2,H):""}</div></div>`;
   // centre (par défaut) : les deux logos centrés. L'ancienne valeur centre_haut retombe ici (= centre).
-  return `<div style="text-align:center;margin-bottom:${mb};display:flex;gap:14px;justify-content:center;align-items:center">${l1?logoImg(l1):""}${l2?logoImg(l2):""}</div>`;
+  return `<div style="text-align:center;margin-bottom:${mb};display:flex;gap:14px;justify-content:center;align-items:center">${l1?logoImg(l1,H):""}${l2?logoImg(l2,H):""}</div>`;
 };
 
 
@@ -295,6 +296,7 @@ const officialHeader = (etab={}, opts={}) => {
   if(bil){
     const logoPosB = etab.logo_position || "milieu";
     const lblocB = logoBlock(etab);
+    const logoMilieuB = logoPosB==="milieu" ? `<div class="oh-mid">${logoBlock(etab,{dispo:"centre",compact:true,h:54})}</div>` : "";
     return `<div class="oh">
       ${logoPosB==="haut"?lblocB:""}
       <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a56db;padding-bottom:6px">
@@ -307,8 +309,8 @@ const officialHeader = (etab={}, opts={}) => {
           <div style="font-size:11px;color:#475569">${ar.devise||""}</div>
         </div>
       </div>
-      ${logoPosB!=="haut"?lblocB:""}
-      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px">
+      ${logoPosB==="sousdevise"?lblocB:""}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:11px">
         <div style="text-align:left;flex:1">
           <div><b>${ministere}</b></div>
           ${ire?`<div><b>IRE :</b> ${ire}</div>`:""}
@@ -317,6 +319,7 @@ const officialHeader = (etab={}, opts={}) => {
           <div><b>École :</b> ${etab.nom||""}</div>
           ${classe?`<div><b>Classe :</b> ${classe}</div>`:""}
         </div>
+        ${logoMilieuB}
         <div style="text-align:right;flex:1;direction:rtl;font-family:'Traditional Arabic','Amiri',serif;font-size:12px">
           <div>${ar.ministere||""}</div>
           ${ar.ire?`<div>${ar.ire}</div>`:""}
@@ -337,7 +340,7 @@ const officialHeader = (etab={}, opts={}) => {
   const lbloc = logoBlock(etab); // alignement horizontal via logo_disposition
   const logoEnHaut = logoPos==="haut" ? lbloc : "";
   const logoSousDevise = logoPos==="sousdevise" ? lbloc : "";
-  const logoMilieu = logoPos==="milieu" ? `<div class="oh-mid">${logoBlock(etab,{dispo:"centre",compact:true})}</div>` : "";
+  const logoMilieu = logoPos==="milieu" ? `<div class="oh-mid">${logoBlock(etab,{dispo:"centre",compact:true,h:54})}</div>` : "";
   return `<div class="oh">
     ${logoEnHaut}
     <div class="oh-top">
@@ -377,7 +380,7 @@ const printHTML = (html, title="MonEcole", opts={}) => {
   const titreCentre = et.theme_titre_centre!==false;
   w.document.write(`<html><head><title>${title}</title><style>
     *{box-sizing:border-box} body{font-family:${police};padding:${bodyPad};color:#1e293b;margin:0;font-size:13px;line-height:1.5}
-    table{width:100%;border-collapse:collapse;margin:6px 0} td,th{border:1px solid #d8dee9;padding:8px 11px;font-size:12px}
+    table{width:100%;border-collapse:collapse;margin:4px 0} td,th{border:1px solid #d8dee9;padding:4px 8px;font-size:11px}
     th{background:${col};color:#fff;font-weight:700;text-align:left} tr:nth-child(even) td{background:#f7f9fc}
     h1{font-size:18px;margin:0 0 4px} h2{font-size:15px;margin:0 0 10px}
     /* En-tête officiel */
@@ -394,7 +397,7 @@ const printHTML = (html, title="MonEcole", opts={}) => {
     /* Anciens en-têtes conservés pour compat */
     .header{text-align:center;border-bottom:3px solid ${col};padding-bottom:14px;margin-bottom:18px}
     .grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:16px;border:1px solid #e8edf4}
-    .result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}
+    .result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px;border-radius:10px;margin-top:10px}
     .stat{text-align:center} .stat-val{font-size:26px;font-weight:900} .stat-lbl{font-size:10px;color:#666;text-transform:uppercase}
     .sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}
     /* Reçu compact moderne (demi-page A4) */
@@ -443,7 +446,7 @@ const Modal = ({title,onClose,children,w=520}) => (
   </div>
 );
 const SHdr = ({title,sub,action}) => (
-  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22}}>
+  <div className="me-shdr" style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22,gap:12}}>
     <div><h2 style={{margin:0,fontSize:22,fontWeight:800,color:"#0f172a",fontFamily:"'Sora',sans-serif",letterSpacing:-0.5}}>{title}</h2>{sub&&<p style={{margin:"5px 0 0",color:"#64748b",fontSize:13}}>{sub}</p>}</div>
     {action}
   </div>
@@ -1759,11 +1762,11 @@ function Bulletins({data,etab}) {
         </div>
         {modeBul==="annuel"?(
           <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}} dir="ltr">
-            <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left,.oh-right{flex:1}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-mid{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 6px}.oh-title{text-align:center;margin-top:12px;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid #1a56db;border-radius:8px;padding:7px 0;background:#eff6ff}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{border:1px solid #d8dee9;padding:7px 9px;font-size:12px}th{background:#1a56db;color:#fff;font-weight:700}.grid{display:grid;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:14px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e)}}/>
+            <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left,.oh-right{flex:1}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-mid{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 6px}.oh-title{text-align:center;margin-top:12px;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid #1a56db;border-radius:8px;padding:7px 0;background:#eff6ff}table{width:100%;border-collapse:collapse;margin:4px 0}td,th{border:1px solid #d8dee9;padding:4px 8px;font-size:11px}th{background:#1a56db;color:#fff;font-weight:700}.grid{display:grid;gap:7px;background:#f7f9fc;padding:10px;border-radius:10px;margin-bottom:10px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px;border-radius:10px;margin-top:10px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e)}}/>
           </div>
         ):(
         <div style={{background:"#fff",borderRadius:18,padding:32,maxWidth:820,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:"1.5px solid #e2e8f0",overflowX:"auto"}} dir="ltr">
-          <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left,.oh-right{flex:1}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-mid{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 6px}.oh-title{text-align:center;margin:12px auto 0;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid ${etab.theme_couleur||"#1a56db"};border-radius:8px;padding:7px 18px;background:${(etab.theme_couleur||"#1a56db")}12;display:block;max-width:60%}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{border:1px solid #d8dee9;padding:7px 9px;font-size:12px}th{background:${etab.theme_couleur||"#1a56db"};color:#fff;font-weight:700}.grid{display:grid;gap:10px;background:#f7f9fc;padding:14px;border-radius:10px;margin-bottom:14px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;border-radius:10px;margin-top:14px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e,periodes.slice(0,periodes.indexOf(periode)+1))}}/>
+          <div dangerouslySetInnerHTML={{__html:`<style>.oh{margin-bottom:18px}.oh-top{text-align:center;margin-bottom:10px}.oh-pays{font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}.oh-devise{font-size:11px;font-style:italic;color:#475569;margin-top:1px}.oh-body{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:11px;color:#334155;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:9px 0}.oh-left,.oh-right{flex:1}.oh-left>div,.oh-right>div{margin:1px 0}.oh-right{text-align:right}.oh-mid{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 6px}.oh-title{text-align:center;margin:12px auto 0;font-size:16px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;border:2px solid ${etab.theme_couleur||"#1a56db"};border-radius:8px;padding:7px 18px;background:${(etab.theme_couleur||"#1a56db")}12;display:block;max-width:60%}table{width:100%;border-collapse:collapse;margin:4px 0}td,th{border:1px solid #d8dee9;padding:4px 8px;font-size:11px}th{background:${etab.theme_couleur||"#1a56db"};color:#fff;font-weight:700}.grid{display:grid;gap:7px;background:#f7f9fc;padding:10px;border-radius:10px;margin-bottom:10px}.result{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px;border-radius:10px;margin-top:10px}.stat{text-align:center}.stat-val{font-size:26px;font-weight:900}.stat-lbl{font-size:10px;color:#666;text-transform:uppercase}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:12px}</style>`+bulletinAnnuelHTML(e,periodes.slice(0,periodes.indexOf(periode)+1))}}/>
         </div>
         )}
       </div>
@@ -2783,6 +2786,9 @@ function App() {
   const [etab,setEtab]=useState(null);
   const [page,setPage]=useState("dashboard");
   const [lang,setLang]=useState(CURRENT_LANG);
+  const [isMobile,setIsMobile]=useState(()=>{try{return window.innerWidth<860;}catch(_){return false;}});
+  const [navOpen,setNavOpen]=useState(false);
+  useEffect(()=>{const onR=()=>{try{setIsMobile(window.innerWidth<860);}catch(_){}};window.addEventListener("resize",onR);return ()=>window.removeEventListener("resize",onR);},[]);
 
   const {data,syncStatus,toast,ops}=useSupabaseData(etab?.id);
 
@@ -2790,6 +2796,22 @@ function App() {
   useEffect(()=>{ CURRENT_LANG=lang; try{localStorage.setItem("monecole_lang",lang);}catch(_){} try{document.documentElement.lang=lang;document.documentElement.dir=lang==="ar"?"rtl":"ltr";}catch(_){} },[lang]);
 
   useEffect(()=>{const l=document.createElement("link");l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap";l.rel="stylesheet";document.head.appendChild(l);},[]);
+
+  // Ajustements responsives cosmétiques (le layout principal est piloté par isMobile)
+  useEffect(()=>{
+    if(document.getElementById("me-responsive")) return;
+    const st=document.createElement("style"); st.id="me-responsive";
+    st.textContent=`
+      @media (max-width:860px){
+        .me-shdr{flex-wrap:wrap}
+        .me-shdr h2{font-size:19px !important}
+        .me-page table{font-size:11.5px}
+        .me-page td,.me-page th{padding:7px 8px !important}
+      }
+      @media (max-width:420px){ .me-card{padding:14px !important} }
+    `;
+    document.head.appendChild(st);
+  },[]);
 
   // Restaure l'utilisateur connecté après un rafraîchissement (session stockée par identifiant)
   useEffect(()=>{
@@ -2847,7 +2869,12 @@ function App() {
   return(
     <div style={{display:"flex",height:"100vh",fontFamily:"'Plus Jakarta Sans',sans-serif",background:"linear-gradient(135deg,#eef2f7 0%,#e8eef6 100%)"}}>
       {toast&&<Toast msg={toast.msg} type={toast.type}/>}
-      <div style={{width:214,background:"linear-gradient(180deg,#0f172a 0%,#13203a 100%)",display:"flex",flexDirection:"column",flexShrink:0,boxShadow:"2px 0 18px rgba(15,23,42,.18)"}}>
+      {isMobile&&<div style={{position:"fixed",top:0,left:0,right:0,height:50,background:"linear-gradient(180deg,#0f172a,#13203a)",zIndex:50,display:"flex",alignItems:"center",gap:11,padding:"0 12px",boxShadow:"0 2px 12px rgba(0,0,0,.3)"}}>
+        <button onClick={()=>setNavOpen(true)} aria-label="Menu" style={{background:"rgba(255,255,255,0.12)",border:"none",color:"#fff",borderRadius:9,width:38,height:38,fontSize:19,cursor:"pointer",lineHeight:1}}>☰</button>
+        <div style={{fontWeight:800,fontSize:15,color:"#fff",fontFamily:"'Sora',sans-serif"}}>MonEcole</div>
+      </div>}
+      {isMobile&&navOpen&&<div onClick={()=>setNavOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:55}}/>}
+      <div style={isMobile?{position:"fixed",top:0,left:0,height:"100vh",width:240,maxWidth:"84vw",background:"linear-gradient(180deg,#0f172a 0%,#13203a 100%)",display:"flex",flexDirection:"column",zIndex:60,transform:navOpen?"translateX(0)":"translateX(-100%)",transition:"transform .25s ease",boxShadow:navOpen?"6px 0 34px rgba(0,0,0,.45)":"none"}:{width:214,background:"linear-gradient(180deg,#0f172a 0%,#13203a 100%)",display:"flex",flexDirection:"column",flexShrink:0,boxShadow:"2px 0 18px rgba(15,23,42,.18)"}}>
         <div style={{padding:"18px 13px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
           <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:11}}>
             <div style={{width:38,height:38,borderRadius:11,background:(etab?.logo_app||etab?.logo)?"#fff":"linear-gradient(135deg,#1a56db,#1e40af)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,overflow:"hidden",border:(etab?.logo_app||etab?.logo)?"1px solid rgba(255,255,255,0.15)":"none",boxShadow:"0 4px 12px -4px rgba(26,86,219,.6)"}}>{(etab?.logo_app||etab?.logo)?<img src={etab.logo_app||etab.logo} alt="logo" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:"🎓"}</div>
@@ -2862,7 +2889,7 @@ function App() {
         </div>
         <nav style={{flex:1,padding:"8px 6px",overflowY:"auto"}}>
           {navForRole(currentUser?.role).map(n=>(
-            <button key={n.id} className="me-nav" onClick={()=>setPage(n.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"9px 11px",borderRadius:10,border:"none",cursor:"pointer",textAlign:"left",marginBottom:2,background:page===n.id?"linear-gradient(135deg,#1a56db,#1e40af)":"transparent",color:page===n.id?"#fff":"rgba(255,255,255,0.5)",fontWeight:page===n.id?700:500,fontSize:11.5,fontFamily:"'Plus Jakarta Sans',sans-serif",boxShadow:page===n.id?"0 4px 12px -4px rgba(26,86,219,.6)":"none"}}
+            <button key={n.id} className="me-nav" onClick={()=>{setPage(n.id);if(isMobile)setNavOpen(false);}} style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"9px 11px",borderRadius:10,border:"none",cursor:"pointer",textAlign:"left",marginBottom:2,background:page===n.id?"linear-gradient(135deg,#1a56db,#1e40af)":"transparent",color:page===n.id?"#fff":"rgba(255,255,255,0.5)",fontWeight:page===n.id?700:500,fontSize:11.5,fontFamily:"'Plus Jakarta Sans',sans-serif",boxShadow:page===n.id?"0 4px 12px -4px rgba(26,86,219,.6)":"none"}}
               onMouseOver={e=>{if(page!==n.id){e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color="rgba(255,255,255,0.8)";}}}
               onMouseOut={e=>{if(page!==n.id){e.currentTarget.style.background="transparent";e.currentTarget.style.color="rgba(255,255,255,0.5)";}}}>
               <span style={{fontSize:15}}>{n.icon}</span>{t("nav_"+n.id)}
@@ -2874,7 +2901,7 @@ function App() {
           <button className="me-btn" onClick={()=>{try{localStorage.removeItem("monecole_uid");}catch(_){}setCurrentUser(null);setScreen("login");}} style={{width:"100%",background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🚪 {t("logout")}</button>
         </div>
       </div>
-      <div style={{flex:1,overflowY:"auto",padding:"26px 28px"}}><div key={safePage} className="me-page">{pages[safePage]}</div></div>
+      <div className="me-main" style={{flex:1,overflowY:"auto",padding:isMobile?"64px 14px 18px":"26px 28px"}}><div key={safePage} className="me-page">{pages[safePage]}</div></div>
     </div>
   );
 }
