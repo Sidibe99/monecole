@@ -572,6 +572,24 @@ const askNotif = async () => {
 const notify = (title, body, tag) => {
   try{ if(!notifsActives()) return; const n=new Notification(title,{body:body||"",tag:tag||"monecole"}); n.onclick=()=>{try{window.focus();}catch(_){}}; }catch(_){}
 };
+// ── Sécurité : hachage des mots de passe (PBKDF2 via Web Crypto, nécessite HTTPS) ──
+const _crypto = (typeof window!=="undefined" && window.crypto && window.crypto.subtle) ? window.crypto : null;
+const genSalt = () => { if(!_crypto) return ""; const a=new Uint8Array(16); _crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(16).padStart(2,"0")).join(""); };
+const hashPw = async (pw, saltHex) => {
+  if(!_crypto||!saltHex) return null;
+  const enc=new TextEncoder();
+  const key=await _crypto.subtle.importKey("raw",enc.encode(pw),"PBKDF2",false,["deriveBits"]);
+  const salt=Uint8Array.from(saltHex.match(/.{1,2}/g).map(h=>parseInt(h,16)));
+  const bits=await _crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:100000,hash:"SHA-256"},key,256);
+  return Array.from(new Uint8Array(bits)).map(b=>b.toString(16).padStart(2,"0")).join("");
+};
+// Prépare le champ mot de passe pour insertion/màj : remplace `password` clair par hash+sel
+const withHashedPw = async (form) => {
+  const f={...form};
+  if(f.password){ const salt=genSalt(); const h=await hashPw(f.password,salt); if(h){ f.password_hash=h; f.password_salt=salt; f.password=null; } }
+  else { delete f.password; }
+  return f;
+};
 const t = (k)=> (I18N[CURRENT_LANG] && I18N[CURRENT_LANG][k]!=null) ? I18N[CURRENT_LANG][k] : (I18N.fr[k]!=null ? I18N.fr[k] : k);
 // Nom bilingue saisi par l'école : renvoie l'arabe si la langue est l'arabe ET qu'une version arabe existe, sinon le français.
 const txt = (fr, ar)=> (CURRENT_LANG==="ar" && ar!=null && String(ar).trim()!=="") ? ar : (fr||"");
@@ -941,8 +959,9 @@ function Onboarding({codeActivation,onDone}) {
       // Sauvegarder établissement
       const {data:etabData,error:etabErr}=await sb.from("etablissements").upsert({...ecole,code_activation:codeActivation,created_at:new Date().toISOString()}).select().single();
       if(etabErr)throw etabErr;
-      // Sauvegarder admin
-      const {data:userData,error:userErr}=await sb.from("utilisateurs").insert({nom:admin.nom,prenom:admin.prenom,identifiant:admin.identifiant,password:admin.password,role:"Administrateur",etablissement_id:etabData.id}).select().single();
+      // Sauvegarder admin (mot de passe haché)
+      const adminPayload=await withHashedPw({nom:admin.nom,prenom:admin.prenom,identifiant:admin.identifiant,password:admin.password,role:"Administrateur",etablissement_id:etabData.id});
+      const {data:userData,error:userErr}=await sb.from("utilisateurs").insert(adminPayload).select().single();
       if(userErr)throw userErr;
       onDone(etabData,userData||{...admin,role:"Administrateur",etablissement_id:etabData.id});
     } catch(e){setErr("Erreur de connexion : "+e.message);}
@@ -1008,10 +1027,20 @@ function Login({onLogin,lang,setLang}) {
   const go=async()=>{
     setLoading(true);setErr("");
     try {
-      const {data,error}=await sb.from("utilisateurs").select("*,etablissements(*)").eq("identifiant",id.trim()).eq("password",pw).single();
+      const {data,error}=await sb.from("utilisateurs").select("*,etablissements(*)").eq("identifiant",id.trim()).limit(1).maybeSingle();
       if(error||!data)throw new Error(t("login_err"));
+      let ok=false;
+      if(data.password_hash&&data.password_salt){
+        const h=await hashPw(pw,data.password_salt);
+        ok = !!h && h===data.password_hash;
+      } else if(data.password!=null){
+        // Ancien compte en clair : on vérifie puis on convertit en haché (migration douce)
+        ok = data.password===pw;
+        if(ok){ try{ const salt=genSalt(); const h=await hashPw(pw,salt); if(h){ await sb.from("utilisateurs").update({password_hash:h,password_salt:salt,password:null}).eq("id",data.id); } }catch(_){} }
+      }
+      if(!ok)throw new Error(t("login_err"));
       onLogin(data,data.etablissements);
-    } catch(e){setErr(e.message);}
+    } catch(e){setErr(t("login_err"));}
     setLoading(false);
   };
   return(
@@ -1161,8 +1190,8 @@ function useSupabaseData(etablissementId) {
     addComp: async(form)=>{const{error}=await sb.from("compositions").insert({...form,etablissement_id:etablissementId,created_at:new Date().toISOString()});if(!error){load();showToast("Composition créée");}else showToast(error.message,"error");},
     deleteComp: async(id)=>{await sb.from("compositions").delete().eq("id",id);load();showToast("Composition supprimée");},
 
-    addUser: async(form)=>{const{error}=await sb.from("utilisateurs").insert({...form,etablissement_id:etablissementId});if(!error){load();showToast("Utilisateur créé");}else showToast(error.message,"error");},
-    updateUser: async(id,form)=>{const{error}=await sb.from("utilisateurs").update(form).eq("id",id);if(!error){load();showToast("Utilisateur modifié");}else showToast(error.message,"error");},
+    addUser: async(form)=>{const f=await withHashedPw(form);const{error}=await sb.from("utilisateurs").insert({...f,etablissement_id:etablissementId});if(!error){load();showToast("Utilisateur créé");}else showToast(error.message,"error");},
+    updateUser: async(id,form)=>{const f=await withHashedPw(form);const{error}=await sb.from("utilisateurs").update(f).eq("id",id);if(!error){load();showToast("Utilisateur modifié");}else showToast(error.message,"error");},
     deleteUser: async(id)=>{await sb.from("utilisateurs").delete().eq("id",id);load();showToast("Utilisateur supprimé");},
   };
 
