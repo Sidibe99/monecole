@@ -162,6 +162,7 @@ const I18N = {
     sh_bienvenue:"Bienvenue", sh_fiche:"Fiche vierge",
     btn_new_classe:"+ Nouvelle classe", btn_new_matiere:"+ Nouvelle matière", btn_new_prof:"+ Nouveau professeur",
     btn_new_user:"+ Nouvel utilisateur", btn_new_groupe:"+ Nouveau groupe",
+    btn_modifier:"Modifier", btn_supprimer:"Supprimer",
     btn_print:"🖨️ Imprimer", btn_print_fiche:"🖨️ Imprimer la fiche",
     db_realtime:"Temps réel", sys_trim:"Trimestriel", sys_sem:"Semestriel",
     db_cours_jour:"Cours du jour", db_cours:"cours", db_mes_matieres:"mes matières",
@@ -268,7 +269,7 @@ const I18N = {
     us_classes:"Classes autorisées", us_classes_note:"L'enseignant ne verra que ces classes (élèves, présences, bulletins…). Vide = toutes les classes.",
     st_sub:"Infos officielles, en-tête des documents et réglages — modifiables à tout moment",
     st_logos:"🖼️ Logos", st_logo_app:"📱 Logo de l'application (interface)", st_logo_app_d:"Affiché dans le menu de l'app — peut être différent des logos imprimés. Si vide, le logo de l'école ci-dessous est utilisé.",
-    st_televerser:"📁 Téléverser", st_img_lourde:"Image trop lourde (max 500 Ko).", st_ou_url:"Ou lien (URL)", st_retirer:"🗑️ Retirer",
+    st_televerser:"📁 Téléverser", st_img_lourde:"Image trop lourde (max 500 Ko).", st_ou_url:"Ou lien (URL)", st_retirer:"Retirer",
     st_logos_doc:"🖨️ Logos des documents (bulletins, reçus, fiches…)", st_logos_doc_d1:"Vous pouvez ajouter ", st_logos_doc_b:"deux images", st_logos_doc_d2:" : le logo de l'école et l'emblème/armoiries du pays. Puis choisissez leur disposition sur les imprimés.",
     st_logo_ecole:"Logo de l'école", st_armoiries:"Emblème / Armoiries du pays",
     st_dispo:"📐 Disposition sur les documents (cliquez un aperçu)", st_dispo_centre:"Centré", st_dispo_gauche:"À gauche", st_dispo_droite:"À droite", st_dispo_deux:"Deux côtés",
@@ -317,6 +318,7 @@ const I18N = {
     sh_bienvenue:"مرحبًا", sh_fiche:"ورقة فارغة",
     btn_new_classe:"+ فصل جديد", btn_new_matiere:"+ مادة جديدة", btn_new_prof:"+ أستاذ جديد",
     btn_new_user:"+ مستخدم جديد", btn_new_groupe:"+ مجموعة جديدة",
+    btn_modifier:"تعديل", btn_supprimer:"حذف",
     btn_print:"🖨️ طباعة", btn_print_fiche:"🖨️ طباعة الورقة",
     db_realtime:"الوقت الحقيقي", sys_trim:"فصلي", sys_sem:"سداسي",
     db_cours_jour:"حصص اليوم", db_cours:"حصة", db_mes_matieres:"موادي",
@@ -423,7 +425,7 @@ const I18N = {
     us_classes:"الأقسام المتاحة", us_classes_note:"لن يرى الأستاذ إلا هذه الأقسام (التلاميذ، الحضور، الكشوف…). فارغ = كل الأقسام.",
     st_sub:"معلومات رسمية، ترويسة الوثائق والإعدادات — قابلة للتعديل في أي وقت",
     st_logos:"🖼️ الشعارات", st_logo_app:"📱 شعار التطبيق (الواجهة)", st_logo_app_d:"يظهر في قائمة التطبيق — قد يختلف عن الشعارات المطبوعة. إذا كان فارغًا، يُستخدم شعار المدرسة أدناه.",
-    st_televerser:"📁 رفع", st_img_lourde:"الصورة كبيرة جدًا (الحد 500 كيلوبايت).", st_ou_url:"أو رابط (URL)", st_retirer:"🗑️ إزالة",
+    st_televerser:"📁 رفع", st_img_lourde:"الصورة كبيرة جدًا (الحد 500 كيلوبايت).", st_ou_url:"أو رابط (URL)", st_retirer:"إزالة",
     st_logos_doc:"🖨️ شعارات الوثائق (الكشوف، الإيصالات، الأوراق…)", st_logos_doc_d1:"يمكنك إضافة ", st_logos_doc_b:"صورتين", st_logos_doc_d2:" : شعار المدرسة وشعار/رمز الدولة. ثم اختر ترتيبهما على المطبوعات.",
     st_logo_ecole:"شعار المدرسة", st_armoiries:"شعار / رمز الدولة",
     st_dispo:"📐 الترتيب على الوثائق (انقر معاينة)", st_dispo_centre:"في الوسط", st_dispo_gauche:"إلى اليسار", st_dispo_droite:"إلى اليمين", st_dispo_deux:"الجهتان",
@@ -1232,8 +1234,8 @@ function Classes({data,ops,etab}) {
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6}}>
                       <span style={{background:"#eff6ff",color:"#1a56db",borderRadius:7,padding:"3px 9px",fontSize:11,fontWeight:700}}>👤 {data.eleves.filter(e=>e.classe_id===c.id).length}</span>
                       <div style={{display:"flex",gap:5}}>
-                        <button onClick={()=>{setErr("");setForm({nom:c.nom,nom_ar:c.nom_ar||"",niveau:c.niveau||"",niveau_detail:c.niveau_detail||"",serie:c.serie||"",effectif:c.effectif||"",frais_annuel_classe:c.frais_annuel_classe??"",frais_inscription_classe:c.frais_inscription_classe??"",classe_suivante_id:c.classe_suivante_id??""});setModal(c.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer"}}>✏️</button>
-                        <button onClick={()=>ops.deleteClass(c.id)} style={{background:"#fef2f2",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer"}}>🗑️</button>
+                        <button onClick={()=>{setErr("");setForm({nom:c.nom,nom_ar:c.nom_ar||"",niveau:c.niveau||"",niveau_detail:c.niveau_detail||"",serie:c.serie||"",effectif:c.effectif||"",frais_annuel_classe:c.frais_annuel_classe??"",frais_inscription_classe:c.frais_inscription_classe??"",classe_suivante_id:c.classe_suivante_id??""});setModal(c.id);}} style={{background:"#f1f5f9",color:"#475569",border:"none",borderRadius:7,padding:"6px 11px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{t("btn_modifier")}</button>
+                        <button onClick={()=>ops.deleteClass(c.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"6px 11px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{t("btn_supprimer")}</button>
                       </div>
                     </div>
                   </Card>
@@ -1317,8 +1319,8 @@ function Matieres({data,ops}) {
                       <td style={{padding:"10px 14px",fontSize:12,color:"#64748b"}}>{m.enseignant||"—"}</td>
                       <td style={{padding:"10px 14px",fontSize:11,color:"#94a3b8"}}>{(!m.cycles||m.cycles.length===0)?t("ma_tous"):m.cycles.map(c=>(({Maternelle:t("cyc_mat"),Primaire:t("cyc_pri"),"Collège":t("cyc_col"),"Lycée":t("cyc_lyc")})[c]||c)).join(", ")}</td>
                       <td style={{padding:"10px 14px",textAlign:"right"}}><div style={{display:"inline-flex",gap:6}}>
-                        <button onClick={()=>{setErr("");setForm({nom:m.nom,nom_ar:m.nom_ar||"",coefficient:m.coefficient,enseignant:m.enseignant||"",cycles:m.cycles||[]});setModal(m.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
-                        <button onClick={()=>ops.deleteMat(m.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>
+                        <button onClick={()=>{setErr("");setForm({nom:m.nom,nom_ar:m.nom_ar||"",coefficient:m.coefficient,enseignant:m.enseignant||"",cycles:m.cycles||[]});setModal(m.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>{t("btn_modifier")}</button>
+                        <button onClick={()=>ops.deleteMat(m.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>{t("btn_supprimer")}</button>
                       </div></td>
                     </tr>
                   ))}</tbody>
@@ -1400,8 +1402,8 @@ function Professeurs({data,ops,etab}) {
               </div>
               <div style={{display:"flex",gap:6,marginTop:11,paddingTop:11,borderTop:"1px solid #f1f5f9"}}>
                 <button onClick={()=>setSel(p.id)} style={{flex:1,background:"#eff6ff",color:"#1a56db",border:"none",borderRadius:8,padding:"7px",cursor:"pointer",fontSize:12,fontWeight:700}}>{t("pf_gerer")}</button>
-                <button onClick={()=>openEdit(p)} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"7px 11px",cursor:"pointer"}}>✏️</button>
-                <button onClick={()=>ops.deleteProf(p.id)} style={{background:"#fef2f2",border:"none",borderRadius:8,padding:"7px 11px",cursor:"pointer"}}>🗑️</button>
+                <button onClick={()=>openEdit(p)} style={{background:"#f1f5f9",color:"#475569",border:"none",borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{t("btn_modifier")}</button>
+                <button onClick={()=>ops.deleteProf(p.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{t("btn_supprimer")}</button>
               </div>
             </Card>
           );})}
@@ -1479,7 +1481,7 @@ function ProfDetail({prof,data,ops,etab,devise,onBack}) {
                     <div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{fmtMoney(s.montant,devise)}</div>
                     <div style={{fontSize:11,color:"#94a3b8"}}>{s.mois||"—"} · {s.date}{s.heures?` · ${s.heures}h`:""}</div>
                   </div>
-                  <button onClick={()=>ops.deleteSalaire(s.id)} style={{background:"#fef2f2",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11}}>🗑️</button>
+                  <button onClick={()=>ops.deleteSalaire(s.id)} style={{background:"#fef2f2",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11}}>{t("btn_supprimer")}</button>
                 </div>
               ))}
             </div>
@@ -1604,8 +1606,8 @@ function EmploiTemps({data,ops,etab,currentUser}) {
                               {c.salle&&<div style={{fontSize:11,color:"#64748b"}}>📍 {c.salle}</div>}
                             </div>
                             <div style={{display:"flex",gap:4}}>
-                              <button onClick={()=>{setForm({jour:c.jour,debut:c.debut,fin:c.fin,matiere_id:String(c.matiere_id||""),prof_id:String(c.prof_id||""),salle:c.salle||""});setModal(c.id);}} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:6,padding:"3px 6px",cursor:"pointer",fontSize:10}}>✏️</button>
-                              <button onClick={()=>ops.deleteCreneau(c.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"3px 6px",cursor:"pointer",fontSize:10}}>🗑️</button>
+                              <button onClick={()=>{setForm({jour:c.jour,debut:c.debut,fin:c.fin,matiere_id:String(c.matiere_id||""),prof_id:String(c.prof_id||""),salle:c.salle||""});setModal(c.id);}} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:6,padding:"3px 6px",cursor:"pointer",fontSize:10}}>{t("btn_modifier")}</button>
+                              <button onClick={()=>ops.deleteCreneau(c.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"3px 6px",cursor:"pointer",fontSize:10}}>{t("btn_supprimer")}</button>
                             </div>
                           </div>
                         </div>
@@ -1632,7 +1634,7 @@ function EmploiTemps({data,ops,etab,currentUser}) {
                 <div key={t.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 13px",background:"#f8fafc",borderRadius:10,borderLeft:"3px solid #1a56db"}}>
                   <div style={{fontSize:11,fontWeight:800,color:"#1a56db",minWidth:88}}>{t.date}</div>
                   <div style={{flex:1}}><div style={{fontSize:13,color:"#0f172a",fontWeight:600}}>{t.titre}</div>{t.auteur&&<div style={{fontSize:10.5,color:"#94a3b8"}}>✍️ {t.auteur}</div>}</div>
-                  <button onClick={()=>ops.setTitreJour(parseInt(classeId),t.date,"",t.auteur)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11}}>🗑️</button>
+                  <button onClick={()=>ops.setTitreJour(parseInt(classeId),t.date,"",t.auteur)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11}}>{t("btn_supprimer")}</button>
                 </div>
               ))}
             </div>
@@ -1751,7 +1753,7 @@ function FicheNotes({data,ops,etab,onEtabUpdate}) {
                 <div style={{display:"flex",gap:3}}>{COULEURS.map(col=>(
                   <button key={col} onClick={()=>setCol(i,"couleur",col)} style={{width:20,height:20,borderRadius:5,background:col,border:c.couleur===col?"2px solid #0f172a":"2px solid transparent",cursor:"pointer"}}/>
                 ))}</div>
-                <button onClick={()=>delCol(i)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"6px 9px",cursor:"pointer",fontSize:11}}>🗑️</button>
+                <button onClick={()=>delCol(i)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"6px 9px",cursor:"pointer",fontSize:11}}>{t("btn_supprimer")}</button>
               </div>
             ))}
           </div>
@@ -1861,8 +1863,8 @@ function Eleves({data,ops,etab}) {
                         </div></td>
                         <td style={{padding:"10px 6px",fontFamily:"monospace",fontSize:12,color:"#64748b"}}>{e.matricule}</td>
                         <td style={{padding:"10px 18px",textAlign:"right"}}><div style={{display:"inline-flex",gap:6}}>
-                          <button onClick={()=>{setErr("");setForm({nom:e.nom,prenom:e.prenom,genre:e.genre||"",classe_id:e.classe_id,date_naissance:e.date_naissance||"",lieu_naissance:e.lieu_naissance||"",tuteur:e.tuteur||"",pere:e.pere||"",tel_pere:e.tel_pere||"",mere:e.mere||"",tel_mere:e.tel_mere||"",telephone:e.telephone||"",frais_annuel:e.frais_annuel??"",frais_inscription_eleve:e.frais_inscription_eleve??"",inscPayee:false});setModal(e.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
-                          <button onClick={()=>ops.deleteEleve(e.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>
+                          <button onClick={()=>{setErr("");setForm({nom:e.nom,prenom:e.prenom,genre:e.genre||"",classe_id:e.classe_id,date_naissance:e.date_naissance||"",lieu_naissance:e.lieu_naissance||"",tuteur:e.tuteur||"",pere:e.pere||"",tel_pere:e.tel_pere||"",mere:e.mere||"",tel_mere:e.tel_mere||"",telephone:e.telephone||"",frais_annuel:e.frais_annuel??"",frais_inscription_eleve:e.frais_inscription_eleve??"",inscPayee:false});setModal(e.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>{t("btn_modifier")}</button>
+                          <button onClick={()=>ops.deleteEleve(e.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>{t("btn_supprimer")}</button>
                         </div></td>
                       </tr>
                     ))}</tbody>
@@ -2303,7 +2305,7 @@ function Paiements({data,ops,etab}) {
                 <td style={{padding:"8px 11px",fontSize:12,color:"#64748b"}}>{p.date}</td>
                 <td style={{padding:"8px 11px"}}><div style={{display:"flex",gap:6}}>
                   <button onClick={()=>printRecu(p)} style={{background:"#eff6ff",color:"#1a56db",border:"none",borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🖨️</button>
-                  <button onClick={()=>ops.deletePaiement(p.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>
+                  <button onClick={()=>ops.deletePaiement(p.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>{t("btn_supprimer")}</button>
                 </div></td>
               </tr>))}</tbody>
             </table>
@@ -2613,12 +2615,12 @@ function Utilisateurs({data,ops,currentUser}) {
       <Tbl cols={[t("us_th_user"),t("us_th_ident"),t("us_th_role"),t("us_th_actions")]} empty={<Empty icon="👤" text={t("us_empty")}/>}
         rows={data.utilisateurs.map(u=>(
           <TR key={u.id}>
-            <TD><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:32,height:32,borderRadius:9,background:(ROLE_CLR[u.role]||"#6b7280")+"20",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:ROLE_CLR[u.role]||"#6b7280",fontSize:11}}>{u.prenom?.[0]}{u.nom[0]}</div><div><div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{u.prenom} {u.nom}</div><div style={{fontSize:11,color:"#94a3b8",marginTop:2,letterSpacing:1}} title={accessOf(u).map(n=>t("nav_"+n.id)).join(", ")}>{accessOf(u).map(n=>n.icon).join(" ")}</div></div></div></TD>
+            <TD><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:32,height:32,borderRadius:9,background:(ROLE_CLR[u.role]||"#6b7280")+"20",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:ROLE_CLR[u.role]||"#6b7280",fontSize:11}}>{u.prenom?.[0]}{u.nom[0]}</div><div><div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{u.prenom} {u.nom}</div><div style={{fontSize:10.5,color:"#94a3b8",marginTop:2,lineHeight:1.35}}>{accessOf(u).map(n=>t("nav_"+n.id)).join(" · ")}</div></div></div></TD>
             <TD mono>{u.identifiant}</TD>
             <TD><Badge role={u.role}/></TD>
             <TD>{currentUser.role==="Administrateur"&&<div style={{display:"flex",gap:6}}>
-              <button onClick={()=>{setForm({nom:u.nom,prenom:u.prenom||"",genre:u.genre||"",identifiant:u.identifiant,password:"",role:u.role,matieres_autorisees:Array.isArray(u.matieres_autorisees)?u.matieres_autorisees:[],classes_autorisees:Array.isArray(u.classes_autorisees)?u.classes_autorisees:[],pages_autorisees:(Array.isArray(u.pages_autorisees)&&u.pages_autorisees.length)?u.pages_autorisees:roleBase(u.role)});setModal(u.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
-              {u.id!==currentUser.id&&<button onClick={()=>ops.deleteUser(u.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>}
+              <button onClick={()=>{setForm({nom:u.nom,prenom:u.prenom||"",genre:u.genre||"",identifiant:u.identifiant,password:"",role:u.role,matieres_autorisees:Array.isArray(u.matieres_autorisees)?u.matieres_autorisees:[],classes_autorisees:Array.isArray(u.classes_autorisees)?u.classes_autorisees:[],pages_autorisees:(Array.isArray(u.pages_autorisees)&&u.pages_autorisees.length)?u.pages_autorisees:roleBase(u.role)});setModal(u.id);}} style={{background:"#f1f5f9",color:"#475569",border:"none",borderRadius:7,padding:"6px 12px",cursor:"pointer",fontSize:11.5,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{t("btn_modifier")}</button>
+              {u.id!==currentUser.id&&<button onClick={()=>ops.deleteUser(u.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"6px 12px",cursor:"pointer",fontSize:11.5,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{t("btn_supprimer")}</button>}
             </div>}</TD>
           </TR>
         ))}
@@ -2952,7 +2954,7 @@ function Parametres({etab,data,ops,onEtabUpdate,currentUser}) {
                     <option value="left">{t("fn_align_g")}</option><option value="center">{t("fn_align_c")}</option><option value="right">{t("fn_align_d")}</option>
                   </select>
                   <button onClick={()=>setLigne(i,"gras",!lg.gras)} style={{padding:"7px 11px",borderRadius:8,border:lg.gras?"2px solid #1a56db":"1.5px solid #e2e8f0",background:lg.gras?"#eff6ff":"#fff",color:lg.gras?"#1a56db":"#64748b",fontWeight:800,fontSize:13,cursor:"pointer"}}>G</button>
-                  <button onClick={()=>delLigne(i)} style={{padding:"7px 10px",borderRadius:8,border:"none",background:"#fef2f2",color:"#dc2626",cursor:"pointer",fontSize:12}}>🗑️</button>
+                  <button onClick={()=>delLigne(i)} style={{padding:"7px 10px",borderRadius:8,border:"none",background:"#fef2f2",color:"#dc2626",cursor:"pointer",fontSize:12}}>{t("btn_supprimer")}</button>
                 </div>
               ))}
             </div>
@@ -2996,7 +2998,7 @@ function Parametres({etab,data,ops,onEtabUpdate,currentUser}) {
                 <span style={{width:22,height:22,borderRadius:6,background:"#1a56db",color:"#fff",fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
                 <input value={p.n} onChange={e=>renamePeriode(i,e.target.value)} placeholder={t("st_periode")+" "+(i+1)} style={{flex:1,padding:"8px 11px",borderRadius:8,border:"1.5px solid #e2e8f0",fontSize:13,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/>
                 <input dir="rtl" value={p.ar||""} onChange={e=>setPeriodeAr(i,e.target.value)} placeholder="بالعربية" style={{flex:1,padding:"8px 11px",borderRadius:8,border:"1.5px solid #e2e8f0",fontSize:14,outline:"none",fontFamily:"'Traditional Arabic','Amiri',serif"}}/>
-                {effPeriodes.length>1&&<button onClick={()=>removePeriode(i)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,width:30,height:30,cursor:"pointer",fontSize:13,flexShrink:0}}>🗑️</button>}
+                {effPeriodes.length>1&&<button onClick={()=>removePeriode(i)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"7px 11px",cursor:"pointer",fontSize:11.5,fontWeight:700,flexShrink:0,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{t("btn_supprimer")}</button>}
               </div>
             ))}
           </div>
