@@ -1122,7 +1122,8 @@ function useSupabaseData(etablissementId) {
       load();
     },
 
-    sendMessage: async(auteur,role,texte,conversation="general",auteur_id=null,fichiers=[])=>{const{error}=await sb.from("messages").insert({auteur,role,texte,conversation,auteur_id,fichiers,etablissement_id:etablissementId,created_at:new Date().toISOString()});if(error)showToast(error.message,"error");else load();},
+    sendMessage: async(auteur,role,texte,conversation="general",auteur_id=null,fichiers=[])=>{const{error}=await sb.from("messages").insert({auteur,role,texte,conversation,auteur_id,fichiers,lu_par:[],etablissement_id:etablissementId,created_at:new Date().toISOString()});if(error)showToast(error.message,"error");else load();},
+    markRead: async(updates)=>{if(!updates||!updates.length)return;for(const u of updates){await sb.from("messages").update({lu_par:u.lu_par}).eq("id",u.id);}load();},
     uploadFichier: async(file)=>{
       try{
         const ext=(file.name.split(".").pop()||"bin").toLowerCase();
@@ -2757,6 +2758,19 @@ function Messagerie({data,ops,currentUser}) {
   // Messages de la conversation active
   const msgs=(data.messages||[]).filter(m=>(m.conversation||"general")===active);
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[data.messages,active]);
+  const fmtTime=(d)=>{try{return new Date(d).toLocaleTimeString(CURRENT_LANG==="ar"?"ar":"fr-FR",{hour:"2-digit",minute:"2-digit"});}catch(_){return "";}};
+  const convOthers=(conv)=>{
+    if(conv==="general")return autres.map(u=>u.id);
+    if(conv.startsWith("group:")){const g=groupes.find(x=>"group:"+x.id===conv);return (g?.membres||[]).filter(id=>id!==me.id);}
+    if(conv.startsWith("dm:")){const ids=conv.slice(3).split("-").map(Number);return ids.filter(i=>i!==me.id);}
+    return [];
+  };
+  // Marquer comme lus les messages reçus de la conversation active
+  useEffect(()=>{
+    if(!me.id)return;
+    const toMark=(data.messages||[]).filter(m=>(m.conversation||"general")===active&&m.auteur_id&&m.auteur_id!==me.id&&!(Array.isArray(m.lu_par)&&m.lu_par.includes(me.id)));
+    if(toMark.length)ops.markRead(toMark.map(m=>({id:m.id,lu_par:[...(Array.isArray(m.lu_par)?m.lu_par:[]),me.id]})));
+  },[active,data.messages]);
 
   const pickFiles=async(e)=>{
     const files=Array.from(e.target.files||[]);
@@ -2816,7 +2830,11 @@ function Messagerie({data,ops,currentUser}) {
           <div style={{padding:"12px 16px",borderBottom:"1px solid #f1f5f9",fontWeight:800,fontSize:13,color:"#0f172a"}}>{activeTitle}</div>
           <div style={{flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10}}>
             {msgs.length===0?<div style={{textAlign:"center",color:"#94a3b8",padding:"40px 0"}}><div style={{fontSize:32}}>💬</div><p style={{fontSize:13}}>{t("msg_aucun_message")}</p></div>:
-            msgs.map(m=>{const mine=m.auteur===myName;const fichiers=Array.isArray(m.fichiers)?m.fichiers:[];return(
+            msgs.map(m=>{const mine=m.auteur===myName;const fichiers=Array.isArray(m.fichiers)?m.fichiers:[];
+              const others=mine?convOthers(active):[];const readers=mine?(Array.isArray(m.lu_par)?m.lu_par.filter(id=>others.includes(id)):[]):[];
+              const someRead=mine&&readers.length>0;const allRead=mine&&others.length>0&&readers.length>=others.length;const isDm=active.startsWith("dm:");
+              let status="";if(mine&&m.auteur_id){status=!someRead?"✓":((isDm||allRead)?"✓✓":"✓✓ "+readers.length);}
+              return(
               <div key={m.id} style={{display:"flex",flexDirection:"column",alignItems:mine?"flex-end":"flex-start"}}>
                 {!mine&&<div style={{fontSize:10,color:"#94a3b8",marginBottom:3}}>{m.auteur} · <Badge role={m.role}/></div>}
                 {m.texte&&<div style={{maxWidth:"72%",background:mine?"linear-gradient(135deg,#1a56db,#1e40af)":"#f1f5f9",color:mine?"#fff":"#0f172a",borderRadius:mine?"15px 15px 5px 15px":"15px 15px 15px 5px",padding:"9px 13px",fontSize:13,lineHeight:1.5,boxShadow:mine?"0 3px 10px -3px rgba(26,86,219,.5)":"none"}}>{m.texte}</div>}
@@ -2835,6 +2853,10 @@ function Messagerie({data,ops,currentUser}) {
                     <a key={k} href={f.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:8,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"8px 12px",textDecoration:"none",color:"#1a56db",fontSize:12,fontWeight:700,maxWidth:200}}>📎 <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.nom}</span></a>
                   );})}
                 </div>}
+                <div style={{fontSize:10,color:"#94a3b8",marginTop:3,display:"flex",gap:5,alignItems:"center",justifyContent:mine?"flex-end":"flex-start"}}>
+                  <span>{fmtTime(m.created_at)}</span>
+                  {mine&&status&&<span style={{fontWeight:800,color:someRead?"#1a56db":"#94a3b8"}}>{status}</span>}
+                </div>
               </div>
             );})}
             <div ref={endRef}/>
