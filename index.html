@@ -204,6 +204,11 @@ const I18N = {
     imp_choisir_fichier:"📁 Choisir un fichier", imp_detectes:"élève(s) détecté(s)", imp_importer:"Importer",
     imp_aucun:"Aucun élève valide trouvé (colonnes Nom et Prénom requises).", imp_doublons:"Tous ces élèves existent déjà dans cette classe.",
     imp_rien_exporter:"Rien à exporter.",
+    imp_notes:"⬆ Importer notes", impn_titre:"Importer des notes (Excel / CSV)",
+    impn_intro:"Importez les notes pour la période et la classe actuellement sélectionnées. Le fichier doit avoir une colonne « Matricule » et une colonne par matière (mêmes noms que vos matières). Astuce : exportez d'abord la grille, remplissez-la, puis réimportez-la.",
+    impn_reconnus:"élève(s) reconnu(s)", impn_notes_n:"note(s) à importer", impn_mats:"matière(s) reconnue(s)",
+    impn_aucun:"Aucune note reconnue. Vérifiez la colonne « Matricule » et les noms de matières.",
+    impn_importer:"Importer les notes", impn_colonnes:"Les notes vides sont ignorées. Seuls les élèves de la classe sélectionnée sont mis à jour.",
     imp_colonnes:"Colonnes reconnues : Nom, Prénom, Genre, Date de naissance, Lieu, Père, Tél père, Mère, Tél mère, Téléphone, Tuteur.",
     btn_print:"🖨️ Imprimer", btn_print_fiche:"🖨️ Imprimer la fiche",
     db_realtime:"Temps réel", sys_trim:"Trimestriel", sys_sem:"Semestriel",
@@ -366,6 +371,11 @@ const I18N = {
     imp_choisir_fichier:"📁 اختر ملفًا", imp_detectes:"تلميذ تم اكتشافه", imp_importer:"استيراد",
     imp_aucun:"لم يُعثر على تلميذ صالح (عمودا اللقب والاسم مطلوبان).", imp_doublons:"كل هؤلاء التلاميذ موجودون بالفعل في هذا القسم.",
     imp_rien_exporter:"لا شيء للتصدير.",
+    imp_notes:"⬆ استيراد النقاط", impn_titre:"استيراد النقاط (إكسل / CSV)",
+    impn_intro:"استورد النقاط للفترة والقسم المحددين حاليًا. يجب أن يحتوي الملف على عمود « رقم التسجيل » وعمود لكل مادة (بنفس أسماء موادك). نصيحة: صدّر الجدول أولًا، املأه، ثم أعد استيراده.",
+    impn_reconnus:"تلميذ معروف", impn_notes_n:"نقطة للاستيراد", impn_mats:"مادة معروفة",
+    impn_aucun:"لم تُعرف أي نقطة. تحقق من عمود « رقم التسجيل » وأسماء المواد.",
+    impn_importer:"استيراد النقاط", impn_colonnes:"النقاط الفارغة تُتجاهل. تُحدَّث فقط نقاط تلاميذ القسم المحدد.",
     imp_colonnes:"الأعمدة المعترف بها: اللقب، الاسم، الجنس، تاريخ الميلاد، المكان، الأب، هاتف الأب، الأم، هاتف الأم، الهاتف، الولي.",
     btn_print:"🖨️ طباعة", btn_print_fiche:"🖨️ طباعة الورقة",
     db_realtime:"الوقت الحقيقي", sys_trim:"فصلي", sys_sem:"سداسي",
@@ -785,6 +795,12 @@ const SHdr = ({title,sub,action}) => (
     {action}
   </div>
 );
+// Barre d'export Excel + Word réutilisable. getRows() renvoie un tableau d'objets (colonnes auto)
+const ExportBar = ({getRows,name,title}) => {
+  const xls=async()=>{const r=getRows()||[];if(!r.length){alert(t("imp_rien_exporter"));return;}try{await exportXLSX(r,`${name}.xlsx`,(title||name).slice(0,31));}catch(e){alert(e.message);}};
+  const doc=()=>{const r=getRows()||[];if(!r.length){alert(t("imp_rien_exporter"));return;}exportDOC(r,`${name}.doc`,title||"");};
+  return <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}><Btn ch={t("imp_export")} v="ghost" onClick={xls}/><Btn ch={t("imp_word")} v="ghost" onClick={doc}/></div>;
+};
 const StatCard = ({icon,label,value,sub,color,onClick}) => (
   <div className="me-card" onClick={onClick} style={{background:"#fff",borderRadius:16,padding:"18px 20px",boxShadow:"0 1px 3px rgba(15,23,42,.04),0 6px 18px -10px rgba(15,23,42,.12)",border:"1px solid #eef2f7",display:"flex",alignItems:"center",gap:14,flex:1,minWidth:140,cursor:onClick?"pointer":"default"}}>
     <div style={{width:46,height:46,borderRadius:13,background:color+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{icon}</div>
@@ -1265,7 +1281,7 @@ function Classes({data,ops,etab}) {
   };
   return(
     <div>
-      <SHdr title={t("nav_classes")+" 🏫"} sub={`${data.classes.length} ${t("cl_count")}`} action={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{data.classes.length>0&&<Btn ch={t("cl_passage")} v="ghost" onClick={()=>setPromo(true)}/>}<Btn ch={t("btn_new_classe")} v="primary" onClick={openNew}/></div>}/>
+      <SHdr title={t("nav_classes")+" 🏫"} sub={`${data.classes.length} ${t("cl_count")}`} action={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><ExportBar name="classes" title={t("nav_classes")} getRows={()=>data.classes.map(c=>({Classe:c.nom,Cycle:c.niveau||"",Niveau:c.niveau_detail||"","Série":c.serie||"",Effectif:data.eleves.filter(e=>e.classe_id===c.id).length,"Frais annuel":c.frais_annuel_classe||"","Frais inscription":c.frais_inscription_classe||""}))}/>{data.classes.length>0&&<Btn ch={t("cl_passage")} v="ghost" onClick={()=>setPromo(true)}/>}<Btn ch={t("btn_new_classe")} v="primary" onClick={openNew}/></div>}/>
       {data.classes.length===0?<Card><Empty icon="🏫" text={t("cl_empty")}/></Card>:(
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
           {CYCLES.map(cyc=>{
@@ -1350,7 +1366,7 @@ function Matieres({data,ops}) {
   const matCycle=cyc=>data.matieres.filter(m=>!m.cycles||m.cycles.length===0||m.cycles.includes(cyc));
   return(
     <div>
-      <SHdr title={t("nav_matieres")+" 📖"} sub={`${data.matieres.length} ${t("ma_count")}`} action={<Btn ch={t("btn_new_matiere")} v="primary" onClick={openNew}/>}/>
+      <SHdr title={t("nav_matieres")+" 📖"} sub={`${data.matieres.length} ${t("ma_count")}`} action={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><ExportBar name="matieres" title={t("nav_matieres")} getRows={()=>data.matieres.map(m=>({"Matière":m.nom,Coefficient:m.coefficient,Enseignant:m.enseignant||"",Cycles:(m.cycles||[]).join(", ")}))}/><Btn ch={t("btn_new_matiere")} v="primary" onClick={openNew}/></div>}/>
       {data.matieres.length===0?<Card><Empty icon="📖" text={t("ma_empty")}/></Card>:(
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
           {CYCLES.map(cyc=>{
@@ -1428,7 +1444,7 @@ function Professeurs({data,ops,etab}) {
 
   return(
     <div>
-      <SHdr title={t("nav_professeurs")+" 👨‍🏫"} sub={`${(data.professeurs||[]).length} ${t("pf_count")}`} action={<Btn ch={t("btn_new_prof")} v="primary" onClick={openNew}/>}/>
+      <SHdr title={t("nav_professeurs")+" 👨‍🏫"} sub={`${(data.professeurs||[]).length} ${t("pf_count")}`} action={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><ExportBar name="professeurs" title={t("nav_professeurs")} getRows={()=>(data.professeurs||[]).map(p=>({Nom:p.nom,"Prénom":p.prenom||"","Téléphone":p.telephone||"",Email:p.email||"","Matières":p.matieres_txt||"",Genre:p.genre||"","Rémunération":p.type_salaire==="horaire"?`${p.taux_horaire||""}/h`:`${p.salaire||""}/mois`,"Date embauche":p.date_embauche||""}))}/><Btn ch={t("btn_new_prof")} v="primary" onClick={openNew}/></div>}/>
       {(data.professeurs||[]).length===0?<Card><Empty icon="👨‍🏫" text={t("pf_empty")}/></Card>:(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:13}}>
           {(data.professeurs||[]).map(p=>{
@@ -1907,14 +1923,16 @@ function Eleves({data,ops,etab}) {
   return(
     <div>
       <SHdr title={t("nav_eleves")+" 👨‍🎓"} sub={`${data.eleves.length} ${t("el_total")}`} action={
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t("el_search")} style={{padding:"8px 12px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",width:150}}/>
-          <Btn ch={t("imp_export")} v="ghost" onClick={doExport}/>
-          <Btn ch={t("imp_word")} v="ghost" onClick={doExportWord}/>
-          <Btn ch={t("imp_import")} v="ghost" onClick={()=>{setImpErr("");setImpRows([]);setImpClasse(classesCycle[0]?.id||data.classes[0]?.id||"");setImpOpen(true);}}/>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t("el_search")} style={{padding:"8px 12px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",width:160}}/>
           <Btn ch={t("el_inscrire")} v="primary" onClick={()=>{setErr("");setForm({nom:"",prenom:"",genre:"",classe_id:classesCycle[0]?.id||data.classes[0]?.id||"",date_naissance:"",lieu_naissance:"",tuteur:"",pere:"",tel_pere:"",mere:"",tel_mere:"",telephone:"",frais_annuel:"",frais_inscription_eleve:"",inscPayee:false});setModal("add");}}/>
         </div>
       }/>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
+        <Btn ch={t("imp_export")} v="ghost" onClick={doExport}/>
+        <Btn ch={t("imp_word")} v="ghost" onClick={doExportWord}/>
+        <Btn ch={t("imp_import")} v="ghost" onClick={()=>{setImpErr("");setImpRows([]);setImpClasse(classesCycle[0]?.id||data.classes[0]?.id||"");setImpOpen(true);}}/>
+      </div>
       <div style={{display:"flex",gap:8,marginBottom:18}}>
         {CYCLES.map(cyc=>{const actif=cycle===cyc;const n=countCycle(cyc);return(
           <button key={cyc} onClick={()=>setCycle(cyc)} style={{flex:1,padding:"13px 16px",borderRadius:13,border:actif?"2px solid #1a56db":"1.5px solid #e2e8f0",background:actif?"#eff6ff":"#fff",cursor:"pointer",textAlign:"left",transition:"all .15s",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
@@ -2011,6 +2029,7 @@ function Notes({data,ops,etab,currentUser}) {
   const [dirty,setDirty]=useState(false);
   const [search,setSearch]=useState("");
   const inputsRef=useRef([]);
+  const [impNotesOpen,setImpNotesOpen]=useState(false);const [impNotesData,setImpNotesData]=useState(null);const [impNotesLoading,setImpNotesLoading]=useState(false);const [impNotesErr,setImpNotesErr]=useState("");const impNotesRef=useRef(null);
 
   const classeSel=data.classes.find(c=>c.id===parseInt(classeId));
   const bareme=baremeOf(classeSel?.niveau);
@@ -2047,6 +2066,29 @@ function Notes({data,ops,etab,currentUser}) {
   const nbRemplies=notesValides.length;
   const totalEleves=classeElevesAll.length;
 
+  const pickNotesFile=async(ev)=>{
+    const file=ev.target.files?.[0];if(!file)return;setImpNotesErr("");setImpNotesData(null);
+    try{
+      const raw=await readXLSX(file);
+      const norm=s=>(s||"").toString().trim().toLowerCase();
+      const ignore=["n°","no","numéro","numero","élève","eleve","nom","prénom","prenom","matricule","moyenne","classe","appréciation","appreciation","mention","rang"];
+      const subjCols={};Object.keys(raw[0]||{}).forEach(h=>{const hn=norm(h);if(ignore.includes(hn))return;const mat=data.matieres.find(m=>norm(m.nom)===hn||norm(m.nom_ar||"")===hn);if(mat)subjCols[h]=mat.id;});
+      let matched=0,noteCount=0;const upMap={};
+      raw.forEach(row=>{
+        const matr=String(row.Matricule||row.matricule||"").trim();
+        let stu=matr?classeElevesAll.find(e=>norm(e.matricule)===norm(matr)):null;
+        if(!stu){const nm=norm(row["Élève"]||row.Eleve||row.eleve||"");if(nm)stu=classeElevesAll.find(e=>norm(`${e.prenom} ${e.nom}`)===nm||norm(`${e.nom} ${e.prenom}`)===nm);}
+        if(!stu)return;matched++;
+        const pNotes={...(stu.notes?.[periode]||{})};let changed=false;
+        Object.entries(subjCols).forEach(([h,mid])=>{const v=row[h];if(v===""||v==null)return;const num=parseFloat(String(v).replace(",","."));if(isNaN(num))return;pNotes[mid]=num;noteCount++;changed=true;});
+        if(changed){const all=upMap[stu.id]?.notes||{...(stu.notes||{})};all[periode]=pNotes;upMap[stu.id]={id:stu.id,notes:all};}
+      });
+      setImpNotesData({updates:Object.values(upMap),matched,noteCount,subjects:Object.keys(subjCols).length});
+      if(!noteCount)setImpNotesErr(t("impn_aucun"));
+    }catch(e2){setImpNotesErr(e2.message);}
+    if(impNotesRef.current)impNotesRef.current.value="";
+  };
+  const confirmNotesImport=async()=>{if(!impNotesData?.updates?.length)return;setImpNotesLoading(true);await ops.saveAllNotes(impNotesData.updates);setImpNotesLoading(false);setImpNotesOpen(false);setImpNotesData(null);};
   const printFiche=()=>{
     const cl=classeSel;
     const rows=classeElevesAll.map((e,i)=>{const note=localNotes[e.id];const app=note!==""&&note!=null?MENTION(note,bareme):{t:"Non noté",c:"#94a3b8",bg:"#f8fafc"};return`<tr><td>${i+1}</td><td><b>${e.prenom} ${e.nom}</b></td><td>${e.matricule}</td><td style="text-align:center;font-weight:900;font-size:16px;color:${app.c}">${note!==""&&note!=null?note:"—"}</td><td>${app.t}</td></tr>`;}).join("");
@@ -2062,9 +2104,11 @@ function Notes({data,ops,etab,currentUser}) {
   return(
     <div>
       <SHdr title={t("nav_notes")+" 📝"} sub={t("no_sub")} action={
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
           {dirty&&<span style={{fontSize:11,color:"#c2410c",fontWeight:700,background:"#fff7ed",padding:"5px 11px",borderRadius:8,border:"1px solid #fed7aa"}}>{t("no_unsaved")}</span>}
+          <ExportBar name={`notes_${(classeSel?.nom||"classe")}_${periode}`.replace(/\s+/g,"_")} title={`${t("nav_notes")} — ${classeSel?.nom||""} — ${periode}`} getRows={()=>classeElevesAll.map((e,i)=>{const row={"N°":i+1,"Élève":`${e.prenom} ${e.nom}`,Matricule:e.matricule};matieresCycle.forEach(m=>{const n=e.notes?.[periode]?.[m.id];row[m.nom]=(n!=null&&n!=="")?n:"";});row["Moyenne"]=calcMoy(e.notes||{},data.matieres,periode);return row;})}/>
           <Btn ch={t("no_fiche")} v="ghost" onClick={printFiche}/>
+          <Btn ch={t("imp_notes")} v="ghost" onClick={()=>{setImpNotesErr("");setImpNotesData(null);setImpNotesOpen(true);}}/>
           <Btn ch={saving?t("no_sync"):(dirty?t("no_save"):t("no_saved"))} v={dirty?"success":"ghost"} onClick={saveAll} disabled={saving||!dirty}/>
         </div>
       }/>
@@ -2110,6 +2154,20 @@ function Notes({data,ops,etab,currentUser}) {
           </Card>
         </>
       )}
+      {impNotesOpen&&<Modal title={t("impn_titre")} onClose={()=>setImpNotesOpen(false)} w={540}>
+        <div style={{fontSize:12,color:"#64748b",marginBottom:6}}>{t("impn_intro")}</div>
+        <div style={{fontSize:12,fontWeight:700,color:"#0f172a",background:"#f8fafc",borderRadius:9,padding:"9px 12px",marginBottom:12}}>{t("no_periode")} : {periodeLabel(etab,periode)} · {t("no_classe")} : {txt(classeSel?.nom,classeSel?.nom_ar)}</div>
+        <label style={{display:"inline-block",padding:"9px 14px",background:"#1a56db",color:"#fff",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>{t("imp_choisir_fichier")}
+          <input ref={impNotesRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={pickNotesFile}/>
+        </label>
+        {impNotesData&&impNotesData.noteCount>0&&<div style={{marginTop:12,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:9,padding:"10px 13px"}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#166534"}}>{impNotesData.matched} {t("impn_reconnus")} · {impNotesData.noteCount} {t("impn_notes_n")}</div>
+          <div style={{fontSize:11,color:"#15803d",marginTop:3}}>{impNotesData.subjects} {t("impn_mats")}</div>
+        </div>}
+        {impNotesErr&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,marginTop:8}}>{impNotesErr}</div>}
+        <div style={{fontSize:11,color:"#94a3b8",marginTop:10}}>{t("impn_colonnes")}</div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}><Btn ch={t("btn_annuler")} v="ghost" onClick={()=>setImpNotesOpen(false)}/><Btn ch={impNotesLoading?"...":t("impn_importer")} v="success" onClick={confirmNotesImport} disabled={impNotesLoading||!impNotesData||!impNotesData.noteCount}/></div>
+      </Modal>}
     </div>
   );
 }
@@ -2163,7 +2221,7 @@ function Bulletins({data,etab}) {
     <table><tr><th>${dl("Matière","المادة")}</th><th>${dl("Coeff.","المعامل")}</th>${entetesP}${single?"":`<th style="text-align:center">${dl("Moy.","المعدل")}</th>`}</tr>${lignes}${moyRow}</table>
     <div class="result" style="background:${mAnn.bg};border:2px solid ${mAnn.c}40"><div class="stat"><div class="stat-val" style="color:${mAnn.c}">${moyAnnuelle!=null?moyAnnuelle.toFixed(2):"—"}</div><div class="stat-lbl">${labelMoyGen} /${bareme}</div></div><div class="stat"><div class="stat-val" style="color:${mAnn.c};font-size:18px">${mAnn.t}</div><div class="stat-lbl">${dl("Mention","التقدير")}</div></div><div class="stat"><div class="stat-val">${rangAnn}/${classmates.length}</div><div class="stat-lbl">${dl("Rang","الرتبة")}</div></div></div>
     ${estAnnuel&&moyAnnuelle!=null?`<div style="margin-top:12px;text-align:center;padding:10px;border-radius:9px;font-weight:800;font-size:13px;background:${admis?"#ecfdf5":"#fef2f2"};color:${admis?"#047857":"#dc2626"};border:1.5px solid ${admis?"#10b981":"#fca5a5"}">${dl("Décision du conseil","قرار المجلس")} : ${dl(decFr,decAr)}</div>`:""}
-    <div class="sign" style="margin-top:40px"><span style="text-align:center">${dl(etab.signataire_grade||"Le Directeur","المدير")}<br/>${etab.signataire_nom?`<b>${etab.signataire_nom}</b><br/>`:""}<span style="color:#94a3b8;font-size:11px">${dl("Signature & cachet","التوقيع والختم")}</span></span><span style="text-align:center">${dl("L'Enseignant(e)","المعلم(ة)")}<br/><br/><span style="color:#94a3b8;font-size:11px">${dl("Signature","التوقيع")}</span></span></div>
+    <div class="sign" style="margin-top:40px"><span style="text-align:center">${dl(etab.signataire_grade||"Le Directeur","المدير")}<br/>${etab.signataire_nom?`<b>${etab.signataire_nom}</b><br/>`:""}</span><span style="text-align:center">${dl("L'Enseignant(e)","المعلم(ة)")}<br/><br/></span></div>
     <p style="text-align:center;font-size:10px;color:#cbd5e1;margin-top:16px">Généré par MonEcole · ${etab.email||""}</p>`;
   };
 
@@ -2180,7 +2238,7 @@ function Bulletins({data,etab}) {
     ${(e.pere||e.mere||e.tuteur)?`<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:-6px">${e.pere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Père</div><b>${e.pere}</b>${e.tel_pere?` <span style="color:#64748b;font-weight:400">(${e.tel_pere})</span>`:""}</div>`:""}${e.mere?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Mère</div><b>${e.mere}</b>${e.tel_mere?` <span style="color:#64748b;font-weight:400">(${e.tel_mere})</span>`:""}</div>`:""}${e.tuteur?`<div><div style="font-size:10px;color:#666;text-transform:uppercase">Tuteur</div><b>${e.tuteur}</b>${e.telephone?` <span style="color:#64748b;font-weight:400">(${e.telephone})</span>`:""}</div>`:""}</div>`:""}
     <table><tr><th>Matière</th><th>Coeff.</th><th>Note /${bareme}</th><th>Points</th><th>Appréciation</th></tr>${lignes}</table>
     <div class="result" style="background:${m.bg};border:2px solid ${m.c}40"><div class="stat"><div class="stat-val" style="color:${m.c}">${moy}</div><div class="stat-lbl">Moyenne /${bareme}</div></div><div class="stat"><div class="stat-val" style="color:${m.c};font-size:18px">${m.t}</div><div class="stat-lbl">Mention</div></div><div class="stat"><div class="stat-val">${rang}/${classmates.length}</div><div class="stat-lbl">Rang</div></div></div>
-    <div class="sign" style="margin-top:40px"><span style="text-align:center">${etab.signataire_grade||"Le Directeur"}<br/>${etab.signataire_nom?`<b>${etab.signataire_nom}</b><br/>`:""}<span style="color:#94a3b8;font-size:11px">Signature & cachet</span></span><span style="text-align:center">L'Enseignant(e)<br/><br/><span style="color:#94a3b8;font-size:11px">Signature</span></span></div>
+    <div class="sign" style="margin-top:40px"><span style="text-align:center">${etab.signataire_grade||"Le Directeur"}<br/>${etab.signataire_nom?`<b>${etab.signataire_nom}</b><br/>`:""}</span><span style="text-align:center">L'Enseignant(e)<br/><br/></span></div>
     <p style="text-align:center;font-size:10px;color:#cbd5e1;margin-top:16px">Généré par MonEcole · ${etab.email||""}</p>`;
   };
 
@@ -2216,9 +2274,10 @@ function Bulletins({data,etab}) {
   return(
     <div>
       <SHdr title={t("nav_bulletins")+" 📄"} sub={t("bu_sub")} action={
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
           <select value={periode} onChange={e=>setPeriode(e.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{periodes.map(p=><option key={p} value={p}>{periodeLabel(etab,p)}</option>)}</select>
           <select value={filterCl} onChange={e=>setFilterCl(e.target.value)} style={{padding:"8px 11px",borderRadius:9,border:"1.5px solid #e2e8f0",fontSize:12,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}><option value="">{t("bu_toutes_classes")}</option>{data.classes.map(c=><option key={c.id} value={c.id}>{txt(c.nom,c.nom_ar)}</option>)}</select>
+          <ExportBar name={`bulletins_${periode}`.replace(/\s+/g,"_")} title={`${t("nav_bulletins")} — ${periode}`} getRows={()=>filtered.map(e=>{const cl=data.classes.find(c=>c.id===e.classe_id);const bareme=baremeOf(cl?.niveau);const moy=parseFloat(calcMoy(e.notes||{},data.matieres,periode));const m=MENTION(isNaN(moy)?0:moy,bareme);const mates=data.eleves.filter(x=>x.classe_id===e.classe_id).map(x=>({id:x.id,v:parseFloat(calcMoy(x.notes||{},data.matieres,periode))||0})).sort((a,b)=>b.v-a.v);const rang=mates.findIndex(x=>x.id===e.id)+1;return {"Élève":`${e.prenom} ${e.nom}`,Matricule:e.matricule,Classe:cl?cl.nom:"","Moyenne":isNaN(moy)?"":moy.toFixed(2),"Mention":m.t,"Rang":`${rang}/${mates.length}`};})}/>
           <Btn ch={t("bu_tout_imprimer")} v="warn" onClick={()=>{if(!filtered.length)return;const idx=periodes.indexOf(periode);const persCumul=periodes.slice(0,idx+1);const html=filtered.map((e,i)=>`${bulletinAnnuelHTML(e,persCumul)}${i<filtered.length-1?'<div class="page-break"></div>':""}`).join("");printHTML(html,"Bulletins — "+periode,{etab});}}/>
         </div>
       }/>
@@ -2437,7 +2496,7 @@ function Paiements({data,ops,etab}) {
   const doExportPaieWord=()=>{const rows=paieRows();if(!rows.length){alert(t("imp_rien_exporter"));return;}exportDOC(rows,`paiements_${(etab.nom||"ecole").replace(/\s+/g,"_")}.doc`,`${t("nav_paiements")} — ${etab.nom||""}`);};
   return(
     <div>
-      <SHdr title={t("nav_paiements")+" 💰"} sub={`${t("pa_total_encaisse")} : ${fmtMoney(totalEncaisse,devise)} · ${t("pa_mode")} : ${isTranche?t("pa_tranches"):t("pa_mensualites")}`} action={data.paiements.length>0?<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn ch={t("imp_export")} v="ghost" onClick={doExportPaie}/><Btn ch={t("imp_word")} v="ghost" onClick={doExportPaieWord}/></div>:null}/>
+      <SHdr title={t("nav_paiements")+" 💰"} sub={`${t("pa_total_encaisse")} : ${fmtMoney(totalEncaisse,devise)} · ${t("pa_mode")} : ${isTranche?t("pa_tranches"):t("pa_mensualites")}`} action={<div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}><Btn ch={t("imp_export")} v="ghost" onClick={doExportPaie}/><Btn ch={t("imp_word")} v="ghost" onClick={doExportPaieWord}/></div>}/>
       {data.eleves.length===0?<Card><Empty icon="💰" text={t("pa_inscrivez")}/></Card>:(<>
         {/* Onglets cycles */}
         <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
@@ -2534,7 +2593,7 @@ function Presences({data,ops,etab}) {
   const absHist=data.eleves.map(e=>({...e,tot:data.presences.filter(p=>p.eleve_id===e.id&&!p.present).length})).filter(e=>e.tot>0).sort((a,b)=>b.tot-a.tot);
   return(
     <div>
-      <SHdr title={t("nav_presences")+" 📅"} sub={t("pr_sub")}/>
+      <SHdr title={t("nav_presences")+" 📅"} sub={t("pr_sub")} action={eleves.length>0?<ExportBar name={`presences_${(data.classes.find(c=>c.id===parseInt(classeId))?.nom||"classe")}_${date}`.replace(/\s+/g,"_")} title={`${t("nav_presences")} — ${date}`} getRows={()=>eleves.map(e=>({"Élève":`${e.prenom} ${e.nom}`,Matricule:e.matricule,Statut:absents.some(a=>a.id===e.id)?"Absent":"Présent"}))}/>:null}/>
       <Card s={{marginBottom:14}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
           <Inp label={t("pa_th_date")} type="date" value={date} onChange={e=>setDate(e.target.value)}/>
