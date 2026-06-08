@@ -194,6 +194,12 @@ const I18N = {
     nav_dashboard:"Tableau de bord", nav_classes:"Classes", nav_matieres:"Matières", nav_eleves:"Élèves",
     nav_professeurs:"Professeurs", nav_emploi:"Emploi du temps", nav_notes:"Saisie des notes", nav_bulletins:"Bulletins",
     nav_fiche_notes:"Fiche vierge", nav_paiements:"Paiements", nav_presences:"Présences", nav_messagerie:"Messagerie",
+    nav_depenses:"Dépenses",
+    dp_sub:"Achats, charges et sorties d'argent", dp_new:"+ Nouvelle dépense", dp_new_titre:"Nouvelle dépense", dp_edit_titre:"Modifier la dépense",
+    dp_total:"Total dépenses", dp_encaisse:"Total encaissé", dp_solde:"Solde (encaissé − dépenses)",
+    dp_mois:"Mois", dp_tous_mois:"Tous les mois", dp_categorie:"Catégorie", dp_toutes_cats:"Toutes les catégories",
+    dp_repartition:"Répartition par catégorie", dp_empty:"Aucune dépense enregistrée.",
+    dp_date:"Date", dp_libelle:"Libellé", dp_libelle_ph:"Ex: Achat de craies, ramettes A4…", dp_montant:"Montant", dp_fournisseur:"Fournisseur", dp_moyen:"Moyen de paiement", dp_note:"Note",
     nav_utilisateurs:"Utilisateurs", nav_parametres:"Établissement",
     sh_bienvenue:"Bienvenue", sh_fiche:"Fiche vierge",
     btn_new_classe:"+ Nouvelle classe", btn_new_matiere:"+ Nouvelle matière", btn_new_prof:"+ Nouveau professeur",
@@ -361,6 +367,12 @@ const I18N = {
     nav_dashboard:"لوحة التحكم", nav_classes:"الفصول", nav_matieres:"المواد", nav_eleves:"التلاميذ",
     nav_professeurs:"المعلمون", nav_emploi:"الجدول الزمني", nav_notes:"إدخال الدرجات", nav_bulletins:"كشوف الدرجات",
     nav_fiche_notes:"ورقة فارغة", nav_paiements:"المدفوعات", nav_presences:"الحضور", nav_messagerie:"الرسائل",
+    nav_depenses:"المصاريف",
+    dp_sub:"المشتريات والأعباء والمصاريف", dp_new:"+ مصروف جديد", dp_new_titre:"مصروف جديد", dp_edit_titre:"تعديل المصروف",
+    dp_total:"إجمالي المصاريف", dp_encaisse:"إجمالي المقبوضات", dp_solde:"الرصيد (المقبوضات − المصاريف)",
+    dp_mois:"الشهر", dp_tous_mois:"كل الأشهر", dp_categorie:"الفئة", dp_toutes_cats:"كل الفئات",
+    dp_repartition:"التوزيع حسب الفئة", dp_empty:"لا مصاريف مسجلة.",
+    dp_date:"التاريخ", dp_libelle:"البيان", dp_libelle_ph:"مثال: شراء طباشير، رزم A4…", dp_montant:"المبلغ", dp_fournisseur:"المورّد", dp_moyen:"وسيلة الدفع", dp_note:"ملاحظة",
     nav_utilisateurs:"المستخدمون", nav_parametres:"المؤسسة",
     sh_bienvenue:"مرحبًا", sh_fiche:"ورقة فارغة",
     btn_new_classe:"+ فصل جديد", btn_new_matiere:"+ مادة جديدة", btn_new_prof:"+ أستاذ جديد",
@@ -970,7 +982,7 @@ function Login({onLogin,lang,setLang}) {
 
 // ── HOOK SUPABASE DATA ────────────────────────────────────────────────────────
 function useSupabaseData(etablissementId) {
-  const [data,setData]=useState({classes:[],matieres:[],eleves:[],utilisateurs:[],paiements:[],presences:[],messages:[],compositions:[],professeurs:[],salaires:[],absences_prof:[],emploi_temps:[],conversations:[],titres_jour:[]});
+  const [data,setData]=useState({classes:[],matieres:[],eleves:[],utilisateurs:[],paiements:[],presences:[],messages:[],compositions:[],professeurs:[],salaires:[],absences_prof:[],emploi_temps:[],conversations:[],titres_jour:[],depenses:[]});
   const [syncStatus,setSyncStatus]=useState("online");
   const [toast,setToast]=useState(null);
 
@@ -980,7 +992,7 @@ function useSupabaseData(etablissementId) {
     if(!etablissementId)return;
     setSyncStatus("syncing");
     try {
-      const [cls,mats,elvs,usrs,pays,pres,msgs,comps,profs,sals,absp,edt,convs,tj]=await Promise.all([
+      const [cls,mats,elvs,usrs,pays,pres,msgs,comps,profs,sals,absp,edt,convs,tj,deps]=await Promise.all([
         sb.from("classes").select("*").eq("etablissement_id",etablissementId).order("nom"),
         sb.from("matieres").select("*").eq("etablissement_id",etablissementId).order("nom"),
         sb.from("eleves").select("*").eq("etablissement_id",etablissementId).order("nom"),
@@ -995,13 +1007,14 @@ function useSupabaseData(etablissementId) {
         sb.from("emploi_temps").select("*").eq("etablissement_id",etablissementId),
         sb.from("conversations").select("*").eq("etablissement_id",etablissementId).order("created_at"),
         sb.from("titres_jour").select("*").eq("etablissement_id",etablissementId).order("created_at",{ascending:false}),
+        sb.from("depenses").select("*").eq("etablissement_id",etablissementId).order("date",{ascending:false}),
       ]);
       setData({
         classes:cls.data||[],matieres:mats.data||[],eleves:elvs.data||[],
         utilisateurs:usrs.data||[],paiements:pays.data||[],presences:pres.data||[],
         messages:msgs.data||[],compositions:comps.data||[],
         professeurs:profs.data||[],salaires:sals.data||[],absences_prof:absp.data||[],
-        emploi_temps:edt.data||[],conversations:convs.data||[],titres_jour:tj.data||[]
+        emploi_temps:edt.data||[],conversations:convs.data||[],titres_jour:tj.data||[],depenses:deps.data||[]
       });
       setSyncStatus("online");
     } catch(e){setSyncStatus("offline");showToast("Erreur de synchronisation","error");}
@@ -1033,6 +1046,9 @@ function useSupabaseData(etablissementId) {
     deleteEleve: async(id)=>{await sb.from("eleves").delete().eq("id",id);load();showToast("Élève supprimé");},
     importEleves: async(rows,prefixe,classe_id)=>{let count=data.eleves.length;const payload=rows.map(r=>{count++;return {...r,classe_id,matricule:`${prefixe||"EL"}-${String(count).padStart(4,"0")}`,etablissement_id:etablissementId,inscription_date:TODAY,notes:{}};});const{error}=await sb.from("eleves").insert(payload);if(!error){load();showToast(`${payload.length} élève(s) importé(s)`);}else showToast(error.message,"error");},
     promouvoirEleves: async(moves)=>{for(const mv of moves){await sb.from("eleves").update({classe_id:mv.classe_id}).eq("id",mv.id);}load();showToast(`${moves.length} élève(s) promu(s)`);},
+    addDepense: async(form)=>{const{error}=await sb.from("depenses").insert({...form,etablissement_id:etablissementId});if(!error){load();showToast("Dépense enregistrée");}else showToast(error.message,"error");},
+    updateDepense: async(id,form)=>{const{error}=await sb.from("depenses").update(form).eq("id",id);if(!error){load();showToast("Dépense modifiée");}else showToast(error.message,"error");},
+    deleteDepense: async(id)=>{await sb.from("depenses").delete().eq("id",id);load();showToast("Dépense supprimée");},
 
     saveNotes: async(eleveId,periode,matiereId,note)=>{
       const eleve=data.eleves.find(e=>e.id===eleveId);
@@ -2828,6 +2844,104 @@ function Utilisateurs({data,ops,currentUser}) {
   );
 }
 
+// ── DÉPENSES ──────────────────────────────────────────────────────────────────
+function Depenses({data,ops,etab}) {
+  const devise=etab.devise||"GNF";
+  const CATS=["Matériel","Fournitures","Salaires","Loyer","Électricité/Eau","Maintenance","Transport","Communication","Taxes","Autre"];
+  const CAT_AR={"Matériel":"معدات","Fournitures":"لوازم","Salaires":"رواتب","Loyer":"إيجار","Électricité/Eau":"كهرباء/ماء","Maintenance":"صيانة","Transport":"نقل","Communication":"اتصالات","Taxes":"ضرائب","Autre":"أخرى"};
+  const catLabel=c=>CURRENT_LANG==="ar"?(CAT_AR[c]||c):c;
+  const moyens=(etab.moyens_paiement&&etab.moyens_paiement.length)?etab.moyens_paiement:["Espèces","Orange Money","MoMo","Carte Visa","Chèque"];
+  const blank={date:TODAY,categorie:"Matériel",libelle:"",montant:"",fournisseur:"",mode_paiement:moyens[0]||"Espèces",note:""};
+  const [modal,setModal]=useState(null);
+  const [form,setForm]=useState(blank);
+  const [loading,setLoading]=useState(false);
+  const [mois,setMois]=useState("");
+  const [cat,setCat]=useState("");
+  const deps=data.depenses||[];
+  const filtered=deps.filter(d=>(!mois||(d.date||"").slice(0,7)===mois)&&(!cat||d.categorie===cat));
+  const total=filtered.reduce((s,d)=>s+(Number(d.montant)||0),0);
+  const encaisse=(data.paiements||[]).filter(p=>!mois||(p.date||"").slice(0,7)===mois).reduce((s,p)=>s+(Number(p.montant)||0),0);
+  const solde=encaisse-total;
+  const moisDispo=[...new Set(deps.map(d=>(d.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
+  const parCat=CATS.map(c=>({c,montant:filtered.filter(d=>d.categorie===c).reduce((s,d)=>s+(Number(d.montant)||0),0)})).filter(x=>x.montant>0).sort((a,b)=>b.montant-a.montant);
+  const save=async()=>{
+    if(!form.libelle||!form.montant)return;
+    setLoading(true);
+    const payload={date:form.date||TODAY,categorie:form.categorie,libelle:form.libelle,montant:parseFloat(form.montant)||0,fournisseur:form.fournisseur,mode_paiement:form.mode_paiement,note:form.note};
+    if(modal==="add")await ops.addDepense(payload);else await ops.updateDepense(modal,payload);
+    setLoading(false);setModal(null);
+  };
+  const openNew=()=>{setForm(blank);setModal("add");};
+  const openEdit=(d)=>{setForm({date:d.date||TODAY,categorie:d.categorie||"Matériel",libelle:d.libelle||"",montant:d.montant??"",fournisseur:d.fournisseur||"",mode_paiement:d.mode_paiement||moyens[0]||"Espèces",note:d.note||""});setModal(d.id);};
+  return(
+    <div>
+      <SHdr title={t("nav_depenses")+" 💸"} sub={t("dp_sub")} action={<div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
+        <ExportBar name="depenses" title={t("nav_depenses")} getRows={()=>filtered.map(d=>({Date:d.date||"","Catégorie":catLabel(d.categorie),"Libellé":d.libelle||"",Montant:d.montant||0,Fournisseur:d.fournisseur||"",Moyen:d.mode_paiement||"",Note:d.note||""}))}/>
+        <Btn ch={t("dp_new")} v="primary" onClick={openNew}/>
+      </div>}/>
+      <div style={{display:"flex",gap:13,marginBottom:16,flexWrap:"wrap"}}>
+        <StatCard icon="💸" label={t("dp_total")} value={fmtMoney(total,devise)} color="#dc2626"/>
+        <StatCard icon="💰" label={t("dp_encaisse")} value={fmtMoney(encaisse,devise)} color="#059669"/>
+        <StatCard icon="⚖️" label={t("dp_solde")} value={fmtMoney(solde,devise)} color={solde>=0?"#1a56db":"#dc2626"}/>
+      </div>
+      <Card s={{marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
+          <Slt label={t("dp_mois")} value={mois} onChange={e=>setMois(e.target.value)} opts={[{v:"",l:t("dp_tous_mois")},...moisDispo.map(m=>({v:m,l:m}))]}/>
+          <Slt label={t("dp_categorie")} value={cat} onChange={e=>setCat(e.target.value)} opts={[{v:"",l:t("dp_toutes_cats")},...CATS.map(c=>({v:c,l:catLabel(c)}))]}/>
+        </div>
+        {parCat.length>0&&<div style={{marginTop:14}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#475569",marginBottom:8}}>{t("dp_repartition")}</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {parCat.map(x=>{const pct=total?Math.round(x.montant/total*100):0;return(
+              <div key={x.c} style={{display:"flex",alignItems:"center",gap:9}}>
+                <div style={{width:120,fontSize:12,color:"#334155",fontWeight:600}}>{catLabel(x.c)}</div>
+                <div style={{flex:1,height:8,background:"#f1f5f9",borderRadius:5,overflow:"hidden"}}><div style={{width:`${pct}%`,height:"100%",background:"#1a56db"}}/></div>
+                <div style={{width:130,textAlign:"right",fontSize:12,fontWeight:700,color:"#0f172a"}}>{fmtMoney(x.montant,devise)}</div>
+              </div>
+            );})}
+          </div>
+        </div>}
+      </Card>
+      {filtered.length===0?<Card><Empty icon="💸" text={t("dp_empty")}/></Card>:(
+        <Card s={{padding:0,overflow:"hidden"}}>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:640}}>
+              <thead><tr style={{background:"#f8fafc"}}>{[t("dp_date"),t("dp_categorie"),t("dp_libelle"),t("dp_fournisseur"),t("dp_montant"),""].map((h,hi)=><th key={hi} style={{padding:"10px 13px",textAlign:hi===4?"right":"left",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+              <tbody>{filtered.map((d,i)=>(
+                <tr key={d.id} style={{borderTop:i>0?"1px solid #f8fafc":"none"}}>
+                  <td style={{padding:"10px 13px",fontSize:12,color:"#64748b",whiteSpace:"nowrap"}}>{d.date}</td>
+                  <td style={{padding:"10px 13px"}}><span style={{background:"#eff6ff",color:"#1a56db",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{catLabel(d.categorie)}</span></td>
+                  <td style={{padding:"10px 13px",fontSize:13,fontWeight:600,color:"#0f172a"}}>{d.libelle}{d.note?<div style={{fontSize:11,color:"#94a3b8",fontWeight:400}}>{d.note}</div>:null}</td>
+                  <td style={{padding:"10px 13px",fontSize:12,color:"#64748b"}}>{d.fournisseur||"—"}</td>
+                  <td style={{padding:"10px 13px",fontSize:13,fontWeight:800,color:"#dc2626",textAlign:"right",whiteSpace:"nowrap"}}>{fmtMoney(d.montant,devise)}</td>
+                  <td style={{padding:"10px 13px",textAlign:"right",whiteSpace:"nowrap"}}><div style={{display:"inline-flex",gap:6}}>
+                    <button onClick={()=>openEdit(d)} style={{background:"#f1f5f9",color:"#475569",border:"none",borderRadius:7,padding:"6px 11px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{t("btn_modifier")}</button>
+                    <button onClick={()=>ops.deleteDepense(d.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"6px 11px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{t("btn_supprimer")}</button>
+                  </div></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+      {modal&&<Modal title={modal==="add"?t("dp_new_titre"):t("dp_edit_titre")} onClose={()=>setModal(null)} w={520}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 13px"}}>
+          <Inp label={t("dp_date")} type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}/>
+          <Slt label={t("dp_categorie")} value={form.categorie} onChange={e=>setForm(f=>({...f,categorie:e.target.value}))} opts={CATS.map(c=>({v:c,l:catLabel(c)}))}/>
+        </div>
+        <Inp label={t("dp_libelle")+" *"} value={form.libelle} onChange={e=>setForm(f=>({...f,libelle:e.target.value}))} placeholder={t("dp_libelle_ph")}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 13px"}}>
+          <Inp label={`${t("dp_montant")} (${devise}) *`} type="number" value={form.montant} onChange={e=>setForm(f=>({...f,montant:e.target.value}))}/>
+          <Slt label={t("dp_moyen")} value={form.mode_paiement} onChange={e=>setForm(f=>({...f,mode_paiement:e.target.value}))} opts={moyens.map(m=>({v:m,l:m}))}/>
+        </div>
+        <Inp label={t("dp_fournisseur")} value={form.fournisseur} onChange={e=>setForm(f=>({...f,fournisseur:e.target.value}))}/>
+        <Inp label={t("dp_note")} value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:6}}><Btn ch={t("btn_annuler")} v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":t("btn_save")} v="success" onClick={save} disabled={loading}/></div>
+      </Modal>}
+    </div>
+  );
+}
+
 // ── NAV ───────────────────────────────────────────────────────────────────────
 // ── PARAMÈTRES ÉTABLISSEMENT ──────────────────────────────────────────────────
 function Parametres({etab,data,ops,onEtabUpdate,currentUser}) {
@@ -3243,6 +3357,7 @@ const NAV=[
   {id:"bulletins",l:"Bulletins",icon:"📄"},
   {id:"fiche_notes",l:"Fiche de notes",icon:"🖨️"},
   {id:"paiements",l:"Paiements",icon:"💰"},
+  {id:"depenses",l:"Dépenses",icon:"💸"},
   {id:"presences",l:"Présences",icon:"📅",prof:true},
   {id:"messagerie",l:"Messagerie",icon:"💬",prof:true},
   {id:"utilisateurs",l:"Utilisateurs",icon:"👤"},
@@ -3431,6 +3546,7 @@ function App() {
     bulletins:<Bulletins data={scopedData} etab={etab||{}}/>,
     fiche_notes:<FicheNotes data={scopedData} ops={ops} etab={etab||{}} onEtabUpdate={setEtab}/>,
     paiements:<Paiements data={scopedData} ops={ops} etab={etab||{}}/>,
+    depenses:<Depenses data={data} ops={ops} etab={etab||{}}/>,
     presences:<Presences data={scopedData} ops={ops} etab={etab||{}}/>,
     messagerie:<Messagerie data={data} ops={ops} currentUser={currentUser}/>,
     utilisateurs:<Utilisateurs data={data} ops={ops} currentUser={currentUser}/>,
