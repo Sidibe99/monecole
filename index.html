@@ -154,7 +154,7 @@ const I18N = {
   fr:{
     login_sub:"Connectez-vous pour continuer", login_id:"Identifiant", login_pw:"Mot de passe",
     login_btn:"Se connecter →", login_btn_loading:"Connexion...", login_err:"Identifiant ou mot de passe incorrect.",
-    logout:"Déconnexion", reconnect:"Reconnexion…",
+    logout:"Déconnexion", reconnect:"Reconnexion…", ui_taille:"Taille du texte",
     nav_dashboard:"Tableau de bord", nav_classes:"Classes", nav_matieres:"Matières", nav_eleves:"Élèves",
     nav_professeurs:"Professeurs", nav_emploi:"Emploi du temps", nav_notes:"Saisie des notes", nav_bulletins:"Bulletins",
     nav_fiche_notes:"Fiche vierge", nav_paiements:"Paiements", nav_presences:"Présences", nav_messagerie:"Messagerie",
@@ -265,6 +265,7 @@ const I18N = {
     us_mdp:"Mot de passe *", us_mdp_new:"Nouveau mot de passe", us_role:"Rôle",
     us_matieres:"Matières enseignées (accès en saisie de notes)", us_aucune_mat:"Aucune matière créée.", us_note_prof:"Le professeur ne pourra saisir que les notes des matières cochées.",
     us_pages:"Pages accessibles", us_pages_note:"Cochez les pages que cet utilisateur pourra ouvrir. Le Tableau de bord est toujours accessible ; l'Administrateur a accès à tout.",
+    us_classes:"Classes autorisées", us_classes_note:"L'enseignant ne verra que ces classes (élèves, présences, bulletins…). Vide = toutes les classes.",
     st_sub:"Infos officielles, en-tête des documents et réglages — modifiables à tout moment",
     st_logos:"🖼️ Logos", st_logo_app:"📱 Logo de l'application (interface)", st_logo_app_d:"Affiché dans le menu de l'app — peut être différent des logos imprimés. Si vide, le logo de l'école ci-dessous est utilisé.",
     st_televerser:"📁 Téléverser", st_img_lourde:"Image trop lourde (max 500 Ko).", st_ou_url:"Ou lien (URL)", st_retirer:"🗑️ Retirer",
@@ -308,7 +309,7 @@ const I18N = {
   ar:{
     login_sub:"سجّل الدخول للمتابعة", login_id:"اسم المستخدم", login_pw:"كلمة المرور",
     login_btn:"تسجيل الدخول ←", login_btn_loading:"جارٍ الدخول...", login_err:"اسم المستخدم أو كلمة المرور غير صحيحة.",
-    logout:"تسجيل الخروج", reconnect:"إعادة الاتصال…",
+    logout:"تسجيل الخروج", reconnect:"إعادة الاتصال…", ui_taille:"حجم النص",
     nav_dashboard:"لوحة التحكم", nav_classes:"الفصول", nav_matieres:"المواد", nav_eleves:"التلاميذ",
     nav_professeurs:"المعلمون", nav_emploi:"الجدول الزمني", nav_notes:"إدخال الدرجات", nav_bulletins:"كشوف الدرجات",
     nav_fiche_notes:"ورقة فارغة", nav_paiements:"المدفوعات", nav_presences:"الحضور", nav_messagerie:"الرسائل",
@@ -419,6 +420,7 @@ const I18N = {
     us_mdp:"كلمة المرور *", us_mdp_new:"كلمة مرور جديدة", us_role:"الدور",
     us_matieres:"المواد المُدرّسة (صلاحية إدخال النقاط)", us_aucune_mat:"لا توجد مواد.", us_note_prof:"لن يتمكن الأستاذ إلا من إدخال نقاط المواد المحددة.",
     us_pages:"الصفحات المتاحة", us_pages_note:"حدّد الصفحات التي يمكن لهذا المستخدم فتحها. لوحة التحكم متاحة دائمًا؛ والمدير لديه وصول كامل.",
+    us_classes:"الأقسام المتاحة", us_classes_note:"لن يرى الأستاذ إلا هذه الأقسام (التلاميذ، الحضور، الكشوف…). فارغ = كل الأقسام.",
     st_sub:"معلومات رسمية، ترويسة الوثائق والإعدادات — قابلة للتعديل في أي وقت",
     st_logos:"🖼️ الشعارات", st_logo_app:"📱 شعار التطبيق (الواجهة)", st_logo_app_d:"يظهر في قائمة التطبيق — قد يختلف عن الشعارات المطبوعة. إذا كان فارغًا، يُستخدم شعار المدرسة أدناه.",
     st_televerser:"📁 رفع", st_img_lourde:"الصورة كبيرة جدًا (الحد 500 كيلوبايت).", st_ou_url:"أو رابط (URL)", st_retirer:"🗑️ إزالة",
@@ -2598,15 +2600,16 @@ function Messagerie({data,ops,currentUser}) {
 // ── UTILISATEURS ──────────────────────────────────────────────────────────────
 function Utilisateurs({data,ops,currentUser}) {
   const roleBase=(role)=>navForRole(role).map(n=>n.id).filter(id=>id!=="dashboard");
-  const [modal,setModal]=useState(null);const [form,setForm]=useState({nom:"",prenom:"",genre:"",identifiant:"",password:"",role:"Professeur",matieres_autorisees:[],pages_autorisees:roleBase("Professeur")});const [loading,setLoading]=useState(false);
+  const [modal,setModal]=useState(null);const [form,setForm]=useState({nom:"",prenom:"",genre:"",identifiant:"",password:"",role:"Professeur",matieres_autorisees:[],classes_autorisees:[],pages_autorisees:roleBase("Professeur")});const [loading,setLoading]=useState(false);
   const toggleMat=id=>setForm(f=>({...f,matieres_autorisees:(f.matieres_autorisees||[]).includes(id)?f.matieres_autorisees.filter(x=>x!==id):[...(f.matieres_autorisees||[]),id]}));
+  const toggleClasse=id=>setForm(f=>({...f,classes_autorisees:(f.classes_autorisees||[]).includes(id)?f.classes_autorisees.filter(x=>x!==id):[...(f.classes_autorisees||[]),id]}));
   const togglePage=id=>setForm(f=>({...f,pages_autorisees:(f.pages_autorisees||[]).includes(id)?f.pages_autorisees.filter(x=>x!==id):[...(f.pages_autorisees||[]),id]}));
   // Pages accessibles d'un utilisateur (pour l'aperçu dans la liste)
   const accessOf=(u)=>{const ids=u.role==="Administrateur"?NAV.map(n=>n.id):((Array.isArray(u.pages_autorisees)&&u.pages_autorisees.length)?["dashboard",...u.pages_autorisees]:navForRole(u.role).map(n=>n.id));return NAV.filter(n=>ids.includes(n.id));};
-  const save=async()=>{if(!form.nom||!form.identifiant)return;setLoading(true);const payload={nom:form.nom,prenom:form.prenom,genre:form.genre,identifiant:form.identifiant,role:form.role,matieres_autorisees:form.role==="Professeur"?(form.matieres_autorisees||[]):[],pages_autorisees:form.role==="Administrateur"?[]:(form.pages_autorisees||[])};if(modal==="add")await ops.addUser({...payload,password:form.password});else await ops.updateUser(modal,{...payload,...(form.password?{password:form.password}:{})});setLoading(false);setModal(null);};
+  const save=async()=>{if(!form.nom||!form.identifiant)return;setLoading(true);const payload={nom:form.nom,prenom:form.prenom,genre:form.genre,identifiant:form.identifiant,role:form.role,matieres_autorisees:form.role==="Professeur"?(form.matieres_autorisees||[]):[],classes_autorisees:form.role==="Professeur"?(form.classes_autorisees||[]):[],pages_autorisees:form.role==="Administrateur"?[]:(form.pages_autorisees||[])};if(modal==="add")await ops.addUser({...payload,password:form.password});else await ops.updateUser(modal,{...payload,...(form.password?{password:form.password}:{})});setLoading(false);setModal(null);};
   return(
     <div>
-      <SHdr title={t("nav_utilisateurs")+" 👤"} sub={t("us_sub")} action={currentUser.role==="Administrateur"?<Btn ch={t("btn_new_user")} v="primary" onClick={()=>{setForm({nom:"",prenom:"",genre:"",identifiant:"",password:"",role:"Professeur",matieres_autorisees:[],pages_autorisees:roleBase("Professeur")});setModal("add");}}/>:null}/>
+      <SHdr title={t("nav_utilisateurs")+" 👤"} sub={t("us_sub")} action={currentUser.role==="Administrateur"?<Btn ch={t("btn_new_user")} v="primary" onClick={()=>{setForm({nom:"",prenom:"",genre:"",identifiant:"",password:"",role:"Professeur",matieres_autorisees:[],classes_autorisees:[],pages_autorisees:roleBase("Professeur")});setModal("add");}}/>:null}/>
       <Tbl cols={[t("us_th_user"),t("us_th_ident"),t("us_th_role"),t("us_th_actions")]} empty={<Empty icon="👤" text={t("us_empty")}/>}
         rows={data.utilisateurs.map(u=>(
           <TR key={u.id}>
@@ -2614,7 +2617,7 @@ function Utilisateurs({data,ops,currentUser}) {
             <TD mono>{u.identifiant}</TD>
             <TD><Badge role={u.role}/></TD>
             <TD>{currentUser.role==="Administrateur"&&<div style={{display:"flex",gap:6}}>
-              <button onClick={()=>{setForm({nom:u.nom,prenom:u.prenom||"",genre:u.genre||"",identifiant:u.identifiant,password:"",role:u.role,matieres_autorisees:Array.isArray(u.matieres_autorisees)?u.matieres_autorisees:[],pages_autorisees:(Array.isArray(u.pages_autorisees)&&u.pages_autorisees.length)?u.pages_autorisees:roleBase(u.role)});setModal(u.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
+              <button onClick={()=>{setForm({nom:u.nom,prenom:u.prenom||"",genre:u.genre||"",identifiant:u.identifiant,password:"",role:u.role,matieres_autorisees:Array.isArray(u.matieres_autorisees)?u.matieres_autorisees:[],classes_autorisees:Array.isArray(u.classes_autorisees)?u.classes_autorisees:[],pages_autorisees:(Array.isArray(u.pages_autorisees)&&u.pages_autorisees.length)?u.pages_autorisees:roleBase(u.role)});setModal(u.id);}} style={{background:"#f1f5f9",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>✏️</button>
               {u.id!==currentUser.id&&<button onClick={()=>ops.deleteUser(u.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️</button>}
             </div>}</TD>
           </TR>
@@ -2647,6 +2650,16 @@ function Utilisateurs({data,ops,currentUser}) {
           )}
           <div style={{fontSize:11,color:"#94a3b8",marginTop:6}}>{t("us_note_prof")}</div>
         </Lbl>}
+        {form.role==="Professeur"&&<Lbl t={t("us_classes")}>
+          {data.classes.length===0?<div style={{fontSize:12,color:"#94a3b8"}}>{t("cl_empty")}</div>:(
+            <div style={{display:"flex",flexWrap:"wrap",gap:7,maxHeight:160,overflowY:"auto",padding:"2px"}}>
+              {data.classes.map(c=>{const on=(form.classes_autorisees||[]).includes(c.id);return(
+                <button key={c.id} type="button" onClick={()=>toggleClasse(c.id)} style={{padding:"6px 12px",borderRadius:20,border:on?"2px solid #1a56db":"1.5px solid #e2e8f0",background:on?"#eff6ff":"#fff",color:on?"#1a56db":"#64748b",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{on?"✓ ":""}{txt(c.nom,c.nom_ar)}</button>
+              );})}
+            </div>
+          )}
+          <div style={{fontSize:11,color:"#94a3b8",marginTop:6}}>{t("us_classes_note")}</div>
+        </Lbl>}
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ch={t("btn_annuler")} v="ghost" onClick={()=>setModal(null)}/><Btn ch={loading?"...":t("btn_save")} v="success" onClick={save} disabled={loading}/></div>
       </Modal>}
     </div>
@@ -2655,7 +2668,7 @@ function Utilisateurs({data,ops,currentUser}) {
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
 // ── PARAMÈTRES ÉTABLISSEMENT ──────────────────────────────────────────────────
-function Parametres({etab,data,ops,onEtabUpdate}) {
+function Parametres({etab,data,ops,onEtabUpdate,currentUser}) {
   const [form,setForm]=useState({
     nom:etab.nom||"",nom_ar:etab.nom_ar||"",devise_txt:etab.devise_txt||"",annee:etab.annee||"",devise:etab.devise||"GNF",
     systeme:etab.systeme||"trimestre",periodes:Array.isArray(etab.periodes)?etab.periodes:null,adresse:etab.adresse||"",telephone:etab.telephone||"",email:etab.email||"",
@@ -2675,7 +2688,10 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
   });
   const [loading,setLoading]=useState(false);
   const [saved,setSaved]=useState(false);
-  const [section,setSection]=useState("ecole");
+  // Admin : toutes les sections. Sinon : uniquement ce qui concerne les documents.
+  const isAdminP = currentUser?.role==="Administrateur";
+  const sectionsDispo = isAdminP ? ["ecole","apparence","documents","paiement"] : ["apparence","documents"];
+  const [section,setSection]=useState(isAdminP?"ecole":"documents");
   // Frais par classe (édition groupée)
   const [fraisClasses,setFraisClasses]=useState(()=>{
     const o={};(data?.classes||[]).forEach(c=>{o[c.id]={mensuel:c.mensualite_classe??"",annuel:c.frais_annuel_classe??"",insc:c.frais_inscription_classe??""};});return o;
@@ -2738,7 +2754,7 @@ function Parametres({etab,data,ops,onEtabUpdate}) {
     <div>
       <SHdr title={t("nav_parametres")+" ⚙️"} sub={t("st_sub")}/>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
-        {[["ecole",t("st_tab_ecole"),"#1a56db"],["apparence",t("st_tab_apparence"),"#7c3aed"],["documents",t("st_tab_documents"),"#0891b2"],["paiement",t("st_tab_paiement"),"#059669"]].map(([id,lbl,c])=>{const on=section===id;return(
+        {[["ecole",t("st_tab_ecole"),"#1a56db"],["apparence",t("st_tab_apparence"),"#7c3aed"],["documents",t("st_tab_documents"),"#0891b2"],["paiement",t("st_tab_paiement"),"#059669"]].filter(([id])=>sectionsDispo.includes(id)).map(([id,lbl,c])=>{const on=section===id;return(
           <button key={id} onClick={()=>setSection(id)} style={{padding:"11px 18px",borderRadius:12,border:on?`2px solid ${c}`:`1.5px solid ${c}33`,background:on?c:"#fff",color:on?"#fff":c,fontSize:14.5,fontWeight:800,cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",boxShadow:on?`0 4px 12px -4px ${c}99`:"none",transition:"all .15s"}}>{lbl}</button>
         );})}
       </div>
@@ -3078,6 +3094,13 @@ const pagesForUser=(u)=>{
   if(Array.isArray(u.pages_autorisees)&&u.pages_autorisees.length) return [...new Set(["dashboard",...u.pages_autorisees])];
   return navForRole(u.role).map(n=>n.id);
 };
+// Sections de l'onglet Établissement (Paramètres)
+const PARAM_SECTIONS=["ecole","apparence","documents","paiement"];
+const paramSectionsForUser=(u)=>{
+  if(!u||u.role==="Administrateur") return PARAM_SECTIONS;
+  if(Array.isArray(u.param_sections)&&u.param_sections.length) return PARAM_SECTIONS.filter(s=>u.param_sections.includes(s));
+  return PARAM_SECTIONS;
+};
 
 // ── APP PRINCIPALE ────────────────────────────────────────────────────────────
 function CheckScreen({codeActivation,onResult}) {
@@ -3157,10 +3180,12 @@ function App() {
   const [etab,setEtab]=useState(null);
   const [page,setPage]=useState(()=>{try{return localStorage.getItem("monecole_page")||"dashboard";}catch(_){return "dashboard";}});
   const [lang,setLang]=useState(CURRENT_LANG);
+  const [uiZoom,setUiZoom]=useState(()=>{try{const v=parseFloat(localStorage.getItem("monecole_zoom"));return v&&v>=0.85&&v<=1.6?v:1.1;}catch(_){return 1.1;}});
   const [isMobile,setIsMobile]=useState(()=>{try{return window.innerWidth<860;}catch(_){return false;}});
   const [navOpen,setNavOpen]=useState(false);
   useEffect(()=>{const onR=()=>{try{setIsMobile(window.innerWidth<860);}catch(_){}};window.addEventListener("resize",onR);return ()=>window.removeEventListener("resize",onR);},[]);
   useEffect(()=>{try{localStorage.setItem("monecole_page",page);}catch(_){}},[page]);
+  useEffect(()=>{try{localStorage.setItem("monecole_zoom",String(uiZoom));}catch(_){}},[uiZoom]);
 
   const {data,syncStatus,toast,ops}=useSupabaseData(etab?.id);
 
@@ -3223,21 +3248,31 @@ function App() {
   const allowed=pagesForUser(currentUser);
   const safePage=allowed.includes(page)?page:"dashboard";
 
+  // Restriction enseignant : ne voir que ses classes / ses matières (le reste des écrans s'y adapte automatiquement)
+  const restrClasses = Array.isArray(currentUser?.classes_autorisees) && currentUser.classes_autorisees.length;
+  const restrMats = Array.isArray(currentUser?.matieres_autorisees) && currentUser.matieres_autorisees.length;
+  const scopedData = (restrClasses||restrMats) ? {
+    ...data,
+    classes: restrClasses ? (data.classes||[]).filter(c=>currentUser.classes_autorisees.includes(c.id)) : data.classes,
+    eleves: restrClasses ? (data.eleves||[]).filter(e=>currentUser.classes_autorisees.includes(e.classe_id)) : data.eleves,
+    matieres: restrMats ? (data.matieres||[]).filter(m=>currentUser.matieres_autorisees.includes(m.id)) : data.matieres,
+  } : data;
+
   const pages={
-    dashboard:<Dashboard data={data} etab={etab||{}} setPage={setPage} currentUser={currentUser}/>,
-    classes:<Classes data={data} ops={ops} etab={etab||{}}/>,
-    matieres:<Matieres data={data} ops={ops}/>,
-    eleves:<Eleves data={data} ops={ops} etab={etab||{}}/>,
-    professeurs:<Professeurs data={data} ops={ops} etab={etab||{}}/>,
-    emploi:<EmploiTemps data={data} ops={ops} etab={etab||{}} currentUser={currentUser}/>,
-    notes:<Notes data={data} ops={ops} etab={etab||{}} currentUser={currentUser}/>,
-    bulletins:<Bulletins data={data} etab={etab||{}}/>,
-    fiche_notes:<FicheNotes data={data} ops={ops} etab={etab||{}} onEtabUpdate={setEtab}/>,
-    paiements:<Paiements data={data} ops={ops} etab={etab||{}}/>,
-    presences:<Presences data={data} ops={ops} etab={etab||{}}/>,
+    dashboard:<Dashboard data={scopedData} etab={etab||{}} setPage={setPage} currentUser={currentUser}/>,
+    classes:<Classes data={scopedData} ops={ops} etab={etab||{}}/>,
+    matieres:<Matieres data={scopedData} ops={ops}/>,
+    eleves:<Eleves data={scopedData} ops={ops} etab={etab||{}}/>,
+    professeurs:<Professeurs data={scopedData} ops={ops} etab={etab||{}}/>,
+    emploi:<EmploiTemps data={scopedData} ops={ops} etab={etab||{}} currentUser={currentUser}/>,
+    notes:<Notes data={scopedData} ops={ops} etab={etab||{}} currentUser={currentUser}/>,
+    bulletins:<Bulletins data={scopedData} etab={etab||{}}/>,
+    fiche_notes:<FicheNotes data={scopedData} ops={ops} etab={etab||{}} onEtabUpdate={setEtab}/>,
+    paiements:<Paiements data={scopedData} ops={ops} etab={etab||{}}/>,
+    presences:<Presences data={scopedData} ops={ops} etab={etab||{}}/>,
     messagerie:<Messagerie data={data} ops={ops} currentUser={currentUser}/>,
     utilisateurs:<Utilisateurs data={data} ops={ops} currentUser={currentUser}/>,
-    parametres:<Parametres etab={etab||{}} data={data} ops={ops} onEtabUpdate={setEtab}/>,
+    parametres:<Parametres etab={etab||{}} data={data} ops={ops} onEtabUpdate={setEtab} currentUser={currentUser}/>,
   };
 
   return(
@@ -3271,11 +3306,17 @@ function App() {
           ))}
         </nav>
         <div style={{padding:"10px 6px",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
+          <div style={{fontSize:9,color:"rgba(255,255,255,0.37)",textAlign:"center",marginBottom:5,textTransform:"uppercase",letterSpacing:.5}}>{t("ui_taille")}</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:9}}>
+            <button onClick={()=>setUiZoom(z=>Math.max(0.85,Math.round((z-0.05)*100)/100))} title="A-" style={{background:"rgba(255,255,255,0.1)",color:"#fff",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:12,fontWeight:800,lineHeight:1}}>A−</button>
+            <span style={{fontSize:11,color:"rgba(255,255,255,0.7)",minWidth:42,textAlign:"center",fontWeight:700}}>{Math.round(uiZoom*100)}%</span>
+            <button onClick={()=>setUiZoom(z=>Math.min(1.5,Math.round((z+0.05)*100)/100))} title="A+" style={{background:"rgba(255,255,255,0.1)",color:"#fff",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:15,fontWeight:800,lineHeight:1}}>A+</button>
+          </div>
           <div style={{display:"flex",justifyContent:"center",marginBottom:9}}><LangToggle lang={lang} setLang={setLang} dark/></div>
           <button className="me-btn" onClick={()=>{try{localStorage.removeItem("monecole_uid");}catch(_){}setCurrentUser(null);setScreen("login");}} style={{width:"100%",background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🚪 {t("logout")}</button>
         </div>
       </div>
-      <div className="me-main" style={{flex:1,overflowY:"auto",zoom:1.1,padding:isMobile?"58px 13px 18px":"24px 26px"}}><div key={safePage} className="me-page">{pages[safePage]}</div></div>
+      <div className="me-main" style={{flex:1,overflowY:"auto",zoom:uiZoom,padding:isMobile?"58px 13px 18px":"24px 26px"}}><div key={safePage} className="me-page">{pages[safePage]}</div></div>
     </div>
   );
 }
