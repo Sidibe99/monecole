@@ -1817,11 +1817,11 @@ function EmploiTemps({data,ops,etab,currentUser}) {
           </div>
           {(()=>{const list=(data.titres_jour||[]).filter(t=>t.classe_id===parseInt(classeId));return list.length===0?<div style={{fontSize:12,color:"#94a3b8"}}>{I18N[CURRENT_LANG]?.edt_aucune_lecon||I18N.fr.edt_aucune_lecon}</div>:(
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {list.slice(0,12).map(t=>(
-                <div key={t.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 13px",background:"#f8fafc",borderRadius:10,borderLeft:"3px solid #1a56db"}}>
-                  <div style={{fontSize:11,fontWeight:800,color:"#1a56db",minWidth:88}}>{t.date}</div>
-                  <div style={{flex:1}}><div style={{fontSize:13,color:"#0f172a",fontWeight:600}}>{t.titre}</div>{t.auteur&&<div style={{fontSize:10.5,color:"#94a3b8"}}>✍️ {t.auteur}</div>}</div>
-                  <button onClick={()=>ops.setTitreJour(parseInt(classeId),t.date,"",t.auteur)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11}}>{t("btn_supprimer")}</button>
+              {list.slice(0,12).map(tj=>(
+                <div key={tj.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 13px",background:"#f8fafc",borderRadius:10,borderLeft:"3px solid #1a56db"}}>
+                  <div style={{fontSize:11,fontWeight:800,color:"#1a56db",minWidth:88}}>{tj.date}</div>
+                  <div style={{flex:1}}><div style={{fontSize:13,color:"#0f172a",fontWeight:600}}>{tj.titre}</div>{tj.auteur&&<div style={{fontSize:10.5,color:"#94a3b8"}}>✍️ {tj.auteur}</div>}</div>
+                  <button onClick={()=>ops.setTitreJour(parseInt(classeId),tj.date,"",tj.auteur)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:11}}>{t("btn_supprimer")}</button>
                 </div>
               ))}
             </div>
