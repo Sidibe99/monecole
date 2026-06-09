@@ -1303,7 +1303,9 @@ function Dashboard({data,etab,setPage,currentUser}) {
   const genreCycle=(cyc,g)=>data.eleves.filter(e=>{const c=data.classes.find(x=>x.id===e.classe_id);return (c?.niveau||"Primaire")===cyc&&e.genre===g;}).length;
   const totG=data.eleves.filter(e=>e.genre==="M").length;
   const totF=data.eleves.filter(e=>e.genre==="F").length;
-  const cycleInfo=[{cyc:"Maternelle",emoji:"🟨",c:"#eab308",bg:"#fefce8"},{cyc:"Primaire",emoji:"🟦",c:"#3b82f6",bg:"#eff6ff"},{cyc:"Collège",emoji:"🟪",c:"#8b5cf6",bg:"#f5f3ff"},{cyc:"Lycée",emoji:"🟩",c:"#10b981",bg:"#ecfdf5"}];
+  const cycleInfoAll=[{cyc:"Maternelle",emoji:"🟨",c:"#eab308",bg:"#fefce8"},{cyc:"Primaire",emoji:"🟦",c:"#3b82f6",bg:"#eff6ff"},{cyc:"Collège",emoji:"🟪",c:"#8b5cf6",bg:"#f5f3ff"},{cyc:"Lycée",emoji:"🟩",c:"#10b981",bg:"#ecfdf5"}];
+  const cyclesPresents=new Set((data.classes||[]).map(c=>c.niveau||"Primaire"));
+  const cycleInfo=cycleInfoAll.filter(ci=>cyclesPresents.has(ci.cyc));
   return(
     <div>
       {dashHeader}
@@ -1319,8 +1321,8 @@ function Dashboard({data,etab,setPage,currentUser}) {
           <div style={{fontSize:30,fontWeight:900,color:"#0f172a"}}>{totF}<span style={{fontSize:13,color:"#94a3b8",fontWeight:600}}> · {data.eleves.length?Math.round(totF/data.eleves.length*100):0}%</span></div>
         </div>
       </div>}
-      {/* Répartition des effectifs par cycle */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:13,marginBottom:14}}>
+      {/* Répartition des effectifs par cycle (uniquement cycles présents) */}
+      {cycleInfo.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:13,marginBottom:14}}>
         {cycleInfo.map(ci=>{const n=countCycle(ci.cyc);const pct=data.eleves.length?Math.round(n/data.eleves.length*100):0;const g=genreCycle(ci.cyc,"M");const f=genreCycle(ci.cyc,"F");return(
           <div key={ci.cyc} onClick={()=>setPage("eleves")} style={{background:`linear-gradient(135deg,${ci.bg},#ffffff)`,borderRadius:16,padding:"18px 20px",border:`1px solid ${ci.c}22`,cursor:"pointer",position:"relative",overflow:"hidden"}}>
             <div style={{fontSize:12,fontWeight:800,color:ci.c,letterSpacing:.3}}>{ci.emoji} {(({Maternelle:t("cyc_mat"),Primaire:t("cyc_pri"),"Collège":t("cyc_col"),"Lycée":t("cyc_lyc")})[ci.cyc]||ci.cyc).toUpperCase()}</div>
@@ -1330,12 +1332,12 @@ function Dashboard({data,etab,setPage,currentUser}) {
             <div style={{position:"absolute",right:-10,bottom:-10,fontSize:64,opacity:0.06}}>{ci.emoji}</div>
           </div>
         );})}
-      </div>
+      </div>}
       <div style={{display:"flex",gap:13,flexWrap:"wrap",marginBottom:20}}>
         <StatCard icon="👨‍🎓" label={t("db_total_eleves")} value={data.eleves.length} sub={`${data.classes.length} ${t("db_classes")}`} color="#3b82f6" onClick={()=>setPage("eleves")}/>
         <StatCard icon="📈" label={t("db_moy_gen")} value={moyGlobale} sub={periodeLabel(etab,lastP)} color="#10b981"/>
         <StatCard icon="🏆" label={t("db_taux")} value={`${tauxReussite}%`} color="#f59e0b"/>
-        <StatCard icon="💰" label={t("nav_paiements")} value={fmtMoney(totalPaie,devise)} color="#8b5cf6" onClick={()=>setPage("paiements")}/>
+        {allowed.includes("paiements")&&<StatCard icon="💰" label={t("nav_paiements")} value={fmtMoney(totalPaie,devise)} color="#8b5cf6" onClick={()=>setPage("paiements")}/>}
         {absToday>0&&<StatCard icon="⚠️" label={t("db_absents")} value={absToday} color="#ef4444" onClick={()=>setPage("presences")}/>}
       </div>
       {moyennes.length>0&&(
