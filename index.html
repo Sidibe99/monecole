@@ -289,6 +289,8 @@ const I18N = {
     no_aucune_cycle:"Aucune matière pour ce cycle / cette classe.",
     no_moy_classe:"Moyenne classe", no_plus_haute:"Plus haute", no_plus_basse:"Plus basse",
     no_admis:"Admis", no_saisies:"Saisies", no_note:"Note", no_appreciation:"Appréciation", no_eleve:"Élève",
+    stat_titre:"📊 Statistiques", stat_indicateur:"Indicateur", stat_valeur:"Valeur", stat_eleves_notes:"Élèves notés", stat_taux_reussite:"Taux de réussite", stat_repartition:"Répartition", stat_excellent:"Excellent", stat_moyen:"Moyen", stat_faible:"Faible", stat_effectif:"Effectif total", stat_garcons:"Garçons", stat_filles:"Filles",
+    stat_tableau:"📊 Tableau statistique", stat_total:"Total", stat_inscrit:"Inscrits", stat_ont_compose:"Ont composé", stat_pas_compose:"N'ont pas composé", stat_ont_moyenne:"Ont la moyenne", stat_pas_moyenne:"N'ont pas la moyenne", stat_pourcentage:"Pourcentage", stat_mode_matiere:"Par matière", stat_mode_generale:"Générale",
     no_search:"🔍 Rechercher un élève...", no_no_result:"Aucun élève ne correspond à la recherche.",
     no_creez:"Créez d'abord des classes et matières.",
     no_prof_aucune:"Aucune matière ne vous est attribuée. Demandez à l'administrateur de vous attribuer vos matières.",
@@ -312,7 +314,7 @@ const I18N = {
     bu_toutes_classes:"Toutes classes", bu_tout_imprimer:"🖨️ Tout imprimer", bu_aucun_eleve:"Aucun élève.",
     fn_align_g:"Gauche", fn_align_c:"Centre", fn_align_d:"Droite",
     fn_sub:"Composez et imprimez une fiche à remplir à la main", fn_creez:"Créez d'abord des classes.",
-    fn_titre:"Titre du document", fn_lignes:"Lignes vides en bas",
+    fn_titre:"Titre du document", fn_lignes:"Lignes vides en bas", fn_nb_pages:"Nombre de pages", fn_stat_inclure:"Inclure le tableau statistique (dernière page)", fn_stat_recalc:"🔄 Recalculer", fn_stat_ligne:"+ Ligne", fn_stat_libelle:"Libellé", fn_stat_pos:"Position", fn_stat_taille:"Taille", fn_taille_p:"Petite", fn_taille_m:"Moyenne", fn_taille_g:"Grande", fn_stat_vpos:"Vertical", fn_vpos_apres:"Après la grille", fn_vpos_bas:"Bas de page",
     fn_prefill_a:"seront pré-remplis, plus", fn_prefill_b:"ligne(s) vide(s).",
     fn_colonnes:"📐 Colonnes de la fiche", fn_add_col:"+ Ajouter une colonne", fn_col_nom_ph:"Nom colonne", fn_largeur:"Largeur",
     fn_apercu:"👁️ Aperçu", fn_autres_b:"autre(s) élève(s)",
@@ -467,6 +469,8 @@ const I18N = {
     no_aucune_cycle:"لا توجد مادة لهذا السلك / القسم.",
     no_moy_classe:"معدل القسم", no_plus_haute:"الأعلى", no_plus_basse:"الأدنى",
     no_admis:"ناجح", no_saisies:"المُدخلة", no_note:"النقطة", no_appreciation:"الملاحظة", no_eleve:"التلميذ",
+    stat_titre:"📊 إحصائيات", stat_indicateur:"المؤشر", stat_valeur:"القيمة", stat_eleves_notes:"التلاميذ المقيَّمون", stat_taux_reussite:"نسبة النجاح", stat_repartition:"التوزيع", stat_excellent:"ممتاز", stat_moyen:"متوسط", stat_faible:"ضعيف", stat_effectif:"العدد الإجمالي", stat_garcons:"البنون", stat_filles:"البنات",
+    stat_tableau:"📊 الجدول الإحصائي", stat_total:"المجموع", stat_inscrit:"المسجّلون", stat_ont_compose:"أدّوا الامتحان", stat_pas_compose:"لم يؤدّوا", stat_ont_moyenne:"حصلوا على المعدل", stat_pas_moyenne:"دون المعدل", stat_pourcentage:"النسبة المئوية", stat_mode_matiere:"حسب المادة", stat_mode_generale:"عام",
     no_search:"🔍 ابحث عن تلميذ...", no_no_result:"لا تلميذ يطابق البحث.",
     no_creez:"أنشئ أقسامًا وموادًا أولًا.",
     no_prof_aucune:"لا توجد مواد مخصصة لك. اطلب من الإدارة تخصيص موادك.",
@@ -490,7 +494,7 @@ const I18N = {
     bu_toutes_classes:"كل الأقسام", bu_tout_imprimer:"🖨️ طباعة الكل", bu_aucun_eleve:"لا تلاميذ.",
     fn_align_g:"يسار", fn_align_c:"وسط", fn_align_d:"يمين",
     fn_sub:"صمّم واطبع ورقة لملئها يدويًا", fn_creez:"أنشئ أقسامًا أولًا.",
-    fn_titre:"عنوان الوثيقة", fn_lignes:"أسطر فارغة في الأسفل",
+    fn_titre:"عنوان الوثيقة", fn_lignes:"أسطر فارغة في الأسفل", fn_nb_pages:"عدد الصفحات", fn_stat_inclure:"إدراج الجدول الإحصائي (الصفحة الأخيرة)", fn_stat_recalc:"🔄 إعادة الحساب", fn_stat_ligne:"+ سطر", fn_stat_libelle:"التسمية", fn_stat_pos:"الموضع", fn_stat_taille:"الحجم", fn_taille_p:"صغير", fn_taille_m:"متوسط", fn_taille_g:"كبير", fn_stat_vpos:"عمودي", fn_vpos_apres:"بعد الجدول", fn_vpos_bas:"أسفل الصفحة",
     fn_prefill_a:"سيُملأون مسبقًا، بالإضافة إلى", fn_prefill_b:"سطر فارغ.",
     fn_colonnes:"📐 أعمدة الورقة", fn_add_col:"+ إضافة عمود", fn_col_nom_ph:"اسم العمود", fn_largeur:"العرض",
     fn_apercu:"👁️ معاينة", fn_autres_b:"تلميذ آخر",
@@ -1874,8 +1878,37 @@ function FicheNotes({data,ops,etab,onEtabUpdate}) {
     {nom:"Observations",largeur:150,couleur:"#475569",align:"left"},
   ]);
   const [classeId,setClasseId]=useState(data.classes[0]?.id||"");
+  const fnPeriodes=periodesList(etab); const [fnPeriode,setFnPeriode]=useState(fnPeriodes[0]);
   const [cols,setCols]=useState(colDefaut());
   const [lignesVides,setLignesVides]=useState(3);
+  const [nbPages,setNbPages]=useState(1);
+  const [statActif,setStatActif]=useState(true);
+  const [statPos,setStatPos]=useState("left");
+  const [statTaille,setStatTaille]=useState("m");
+  const [statVPos,setStatVPos]=useState("apres");
+  const computeStatRows=(cl,per)=>{
+    const els=data.eleves.filter(e=>e.classe_id===parseInt(cl));
+    const niv=(data.classes.find(c=>c.id===parseInt(cl))||{}).niveau;
+    const bareme=baremeOf(niv); const seuil=bareme/2;
+    const isF=e=>(e.genre||"").toLowerCase().startsWith("f");
+    const valOf=e=>{const m=parseFloat(calcMoy(e.notes||{},data.matieres,per));return isNaN(m)?null:m;};
+    const insc=els, inscF=insc.filter(isF);
+    const comp=insc.filter(e=>valOf(e)!=null), compF=comp.filter(isF);
+    const moy=comp.filter(e=>valOf(e)>=seuil), moyF=moy.filter(isF);
+    const pct=(a,b)=>b?Math.round(a/b*100)+"%":"0%";
+    return [
+      {label:t("stat_inscrit"), total:String(insc.length), filles:String(inscF.length)},
+      {label:t("stat_ont_compose"), total:String(comp.length), filles:String(compF.length)},
+      {label:t("stat_pas_compose"), total:String(insc.length-comp.length), filles:String(inscF.length-compF.length)},
+      {label:t("stat_ont_moyenne"), total:String(moy.length), filles:String(moyF.length)},
+      {label:t("stat_pas_moyenne"), total:String(comp.length-moy.length), filles:String(compF.length-moyF.length)},
+      {label:t("stat_pourcentage"), total:pct(moy.length,comp.length), filles:pct(moyF.length,compF.length)},
+    ];
+  };
+  const [statRows,setStatRows]=useState(()=>computeStatRows(data.classes[0]?.id||0, fnPeriodes[0]));
+  const setStatCell=(i,k,v)=>setStatRows(rs=>{const n=[...rs];n[i]={...n[i],[k]:v};return n;});
+  const addStatRow=()=>setStatRows(rs=>[...rs,{label:"",total:"",filles:""}]);
+  const delStatRow=i=>setStatRows(rs=>rs.filter((_,j)=>j!==i));
   const [titre,setTitre]=useState("FICHE DE NOTES");
   const [modeleNom,setModeleNom]=useState("");
   const modeles=Array.isArray(etab.fiche_modeles)?etab.fiche_modeles:[];
@@ -1914,11 +1947,28 @@ function FicheNotes({data,ops,etab,onEtabUpdate}) {
       const val=(c.nom==="N°"||c.auto==="num")?(eleves.length+k+1):"";
       return `<td style="border:1px solid #cbd5e1;padding:6px 8px;font-size:11px;text-align:${c.align};height:24px">${val}</td>`;
     }).join("")}</tr>`).join("");
-    printHTML(`${officialHeader(etab,{classe:classe.nom,docTitle:titre})}
-      <table style="width:100%;border-collapse:collapse;margin-top:8px">
-        <thead><tr>${th}</tr></thead>
-        <tbody>${rowsEleves}${rowsVides}</tbody>
-      </table>`,`${titre} ${classe.nom}`,{etab});
+    const grid=`<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr>${th}</tr></thead><tbody>${rowsEleves}${rowsVides}</tbody></table>`;
+    const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const SZ={p:{fs:9.5,pad:"3px 9px"},m:{fs:11,pad:"5px 12px"},g:{fs:13,pad:"8px 16px"}}[statTaille]||{fs:11,pad:"5px 12px"};
+    const statHTML=(statActif&&statRows.length)?`<div style="text-align:${statPos}"><table style="border-collapse:collapse;margin-top:22px;display:inline-block;text-align:left">
+      <thead><tr>
+        <th style="border:1px solid #94a3b8;padding:${SZ.pad};background:#1a56db;color:#fff;font-size:${SZ.fs}px;text-align:left">${t("stat_tableau").replace("📊 ","")}</th>
+        <th style="border:1px solid #94a3b8;padding:${SZ.pad};background:#1a56db;color:#fff;font-size:${SZ.fs}px;text-align:center">${t("stat_total")}</th>
+        <th style="border:1px solid #94a3b8;padding:${SZ.pad};background:#1a56db;color:#fff;font-size:${SZ.fs}px;text-align:center">${t("stat_filles")}</th>
+      </tr></thead>
+      <tbody>${statRows.map(r=>`<tr><td style="border:1px solid #cbd5e1;padding:${SZ.pad};font-size:${SZ.fs}px;font-weight:600">${esc(r.label)}</td><td style="border:1px solid #cbd5e1;padding:${SZ.pad};font-size:${SZ.fs}px;text-align:center">${esc(r.total)}</td><td style="border:1px solid #cbd5e1;padding:${SZ.pad};font-size:${SZ.fs}px;text-align:center">${esc(r.filles)}</td></tr>`).join("")}</tbody>
+    </table></div>`:"";
+    const N=Math.max(1,parseInt(nbPages)||1);
+    let body="";
+    for(let p=0;p<N;p++){
+      const last=p===N-1;
+      if(last&&statHTML&&statVPos==="bas"){
+        body+=`<div style="min-height:96vh;display:flex;flex-direction:column">${officialHeader(etab,{classe:classe.nom,docTitle:titre})}${grid}<div style="margin-top:auto">${statHTML}</div></div>`;
+      } else {
+        body+=`<div style="${last?"":"page-break-after:always"}">${officialHeader(etab,{classe:classe.nom,docTitle:titre})}${grid}${last?statHTML:""}</div>`;
+      }
+    }
+    printHTML(body,`${titre} ${classe.nom}`,{etab});
   };
 
   return(
@@ -1934,6 +1984,7 @@ function FicheNotes({data,ops,etab,onEtabUpdate}) {
             </div>
             <Inp label={t("fn_titre")} value={titre} onChange={e=>setTitre(e.target.value)}/>
             <Inp label={t("fn_lignes")} type="number" value={lignesVides} onChange={e=>setLignesVides(Math.max(0,parseInt(e.target.value)||0))}/>
+            <Inp label={t("fn_nb_pages")} type="number" value={nbPages} onChange={e=>setNbPages(Math.max(1,parseInt(e.target.value)||1))}/>
           </div>
           <div style={{fontSize:12,color:"#64748b",marginTop:6}}>👥 {eleves.length} {t("db_eleves")} {t("fn_prefill_a")} {lignesVides} {t("fn_prefill_b")}</div>
         </Card>
@@ -1995,6 +2046,54 @@ function FicheNotes({data,ops,etab,onEtabUpdate}) {
             </div>
           )}
         </Card>
+
+        {/* Tableau statistique éditable (imprimé sur la dernière page) */}
+        {classe&&(
+          <Card>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:11}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{t("stat_tableau")} — {txt(classe.nom,classe.nom_ar)}</div>
+              <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
+                <select value={fnPeriode} onChange={e=>setFnPeriode(e.target.value)} style={{padding:"6px 10px",borderRadius:8,border:"1.5px solid #e2e8f0",fontSize:12,fontWeight:600,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+                  {fnPeriodes.map(p=><option key={p} value={p}>{periodeLabel(etab,p)}</option>)}
+                </select>
+                <Btn ch={t("fn_stat_recalc")} v="ghost" s={{padding:"6px 11px",fontSize:11.5}} onClick={()=>setStatRows(computeStatRows(classeId,fnPeriode))}/>
+              </div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",marginBottom:11}}>
+              <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12,fontWeight:600,color:"#334155",cursor:"pointer"}}>
+                <input type="checkbox" checked={statActif} onChange={e=>setStatActif(e.target.checked)}/>{t("fn_stat_inclure")}
+              </label>
+              {statActif&&<div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                <span style={{fontSize:11,fontWeight:700,color:"#94a3b8"}}>{t("fn_stat_pos")}</span>
+                <select value={statPos} onChange={e=>setStatPos(e.target.value)} style={{padding:"5px 9px",borderRadius:7,border:"1.5px solid #e2e8f0",fontSize:12,fontWeight:600,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+                  <option value="left">{t("fn_align_g")}</option><option value="center">{t("fn_align_c")}</option><option value="right">{t("fn_align_d")}</option>
+                </select>
+                <span style={{fontSize:11,fontWeight:700,color:"#94a3b8",marginLeft:4}}>{t("fn_stat_taille")}</span>
+                <select value={statTaille} onChange={e=>setStatTaille(e.target.value)} style={{padding:"5px 9px",borderRadius:7,border:"1.5px solid #e2e8f0",fontSize:12,fontWeight:600,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+                  <option value="p">{t("fn_taille_p")}</option><option value="m">{t("fn_taille_m")}</option><option value="g">{t("fn_taille_g")}</option>
+                </select>
+                <span style={{fontSize:11,fontWeight:700,color:"#94a3b8",marginLeft:4}}>{t("fn_stat_vpos")}</span>
+                <select value={statVPos} onChange={e=>setStatVPos(e.target.value)} style={{padding:"5px 9px",borderRadius:7,border:"1.5px solid #e2e8f0",fontSize:12,fontWeight:600,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+                  <option value="apres">{t("fn_vpos_apres")}</option><option value="bas">{t("fn_vpos_bas")}</option>
+                </select>
+              </div>}
+            </div>
+            <div style={{overflowX:"auto"}}>
+              <table style={{borderCollapse:"collapse",width:"auto"}}>
+                <thead><tr>{[t("fn_stat_libelle"),t("stat_total"),t("stat_filles"),""].map((h,i)=><th key={i} style={{padding:"6px 9px",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",textAlign:"left"}}>{h}</th>)}</tr></thead>
+                <tbody>{statRows.map((r,i)=>(
+                  <tr key={i}>
+                    <td style={{padding:"3px 6px"}}><input value={r.label} onChange={e=>setStatCell(i,"label",e.target.value)} style={{width:170,padding:"6px 9px",borderRadius:7,border:"1.5px solid #e2e8f0",fontSize:12,fontWeight:600,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/></td>
+                    <td style={{padding:"3px 6px"}}><input value={r.total} onChange={e=>setStatCell(i,"total",e.target.value)} style={{width:70,padding:"6px 9px",borderRadius:7,border:"1.5px solid #e2e8f0",fontSize:12,fontWeight:700,textAlign:"center",outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/></td>
+                    <td style={{padding:"3px 6px"}}><input value={r.filles} onChange={e=>setStatCell(i,"filles",e.target.value)} style={{width:70,padding:"6px 9px",borderRadius:7,border:"1.5px solid #e2e8f0",fontSize:12,fontWeight:700,textAlign:"center",outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif"}}/></td>
+                    <td style={{padding:"3px 6px"}}><button onClick={()=>delStatRow(i)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:6,padding:"5px 9px",cursor:"pointer",fontSize:11}}>✕</button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <Btn ch={t("fn_stat_ligne")} v="ghost" s={{padding:"6px 12px",fontSize:12,marginTop:9}} onClick={addStatRow}/>
+          </Card>
+        )}
       </>)}
     </div>
   );
@@ -2167,6 +2266,7 @@ function Notes({data,ops,etab,currentUser}) {
   const [saving,setSaving]=useState(false);
   const [dirty,setDirty]=useState(false);
   const [search,setSearch]=useState("");
+  const [statBase,setStatBase]=useState("matiere");
   const inputsRef=useRef([]);
   const [impNotesOpen,setImpNotesOpen]=useState(false);const [impNotesData,setImpNotesData]=useState(null);const [impNotesLoading,setImpNotesLoading]=useState(false);const [impNotesErr,setImpNotesErr]=useState("");const impNotesRef=useRef(null);
 
@@ -2291,6 +2391,39 @@ function Notes({data,ops,etab,currentUser}) {
             </table>
             {classeEleves.length===0&&<div style={{padding:18,textAlign:"center",color:"#94a3b8",fontSize:12}}>{t("no_no_result")}</div>}
           </Card>
+          {/* Tableau statistique (matière ou moyenne générale, en direct) */}
+          {(()=>{
+            const isF=e=>(e.genre||"").toLowerCase().startsWith("f");
+            const seuil=bareme/2;
+            const valOf = statBase==="generale"
+              ? (e=>{const m=parseFloat(calcMoy(e.notes||{},data.matieres,periode));return isNaN(m)?null:m;})
+              : (e=>{const v=localNotes[e.id];return (v===""||v==null||isNaN(parseFloat(v)))?null:parseFloat(v);});
+            const insc=classeElevesAll, inscF=insc.filter(isF);
+            const comp=insc.filter(e=>valOf(e)!=null), compF=comp.filter(isF);
+            const moy=comp.filter(e=>valOf(e)>=seuil), moyF=moy.filter(isF);
+            const pct=(a,b)=>b?Math.round(a/b*100):0;
+            const rows=[
+              [t("stat_inscrit"), insc.length, inscF.length],
+              [t("stat_ont_compose"), comp.length, compF.length],
+              [t("stat_pas_compose"), insc.length-comp.length, inscF.length-compF.length],
+              [t("stat_ont_moyenne"), moy.length, moyF.length],
+              [t("stat_pas_moyenne"), comp.length-moy.length, compF.length-moyF.length],
+              [t("stat_pourcentage"), pct(moy.length,comp.length)+"%", pct(moyF.length,compF.length)+"%"],
+            ];
+            const Seg=({v,lbl})=><button onClick={()=>setStatBase(v)} style={{padding:"5px 11px",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif",background:statBase===v?"#1a56db":"#f1f5f9",color:statBase===v?"#fff":"#64748b"}}>{lbl}</button>;
+            return(
+              <Card s={{marginTop:14}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:3}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{t("stat_tableau")}</div>
+                  <div style={{display:"flex",gap:5}}><Seg v="matiere" lbl={t("stat_mode_matiere")}/><Seg v="generale" lbl={t("stat_mode_generale")}/></div>
+                </div>
+                <div style={{fontSize:11,color:"#94a3b8",marginBottom:11}}>{statBase==="generale"?periodeLabel(etab,periode):`${txt(matiere?.nom,matiere?.nom_ar)} — ${periodeLabel(etab,periode)}`}</div>
+                <Tbl cols={[t("stat_tableau"),t("stat_total"),t("stat_filles")]} empty={null} rows={rows.map((r,i)=>(
+                  <TR key={i}><TD bold>{r[0]}</TD><TD>{r[1]}</TD><TD>{r[2]}</TD></TR>
+                ))}/>
+              </Card>
+            );
+          })()}
         </>
       )}
       {impNotesOpen&&<Modal title={t("impn_titre")} onClose={()=>setImpNotesOpen(false)} w={540}>
@@ -2775,23 +2908,23 @@ function Presences({data,ops,etab}) {
       {absHist.length>0&&<Card><div style={{fontWeight:700,fontSize:13,color:"#0f172a",marginBottom:11}}>{t("pr_histo")}</div>
         <Tbl cols={[t("no_eleve"),t("no_classe"),t("pr_th_total")]} empty={null} rows={absHist.slice(0,10).map(e=>{const cl=data.classes.find(c=>c.id===e.classe_id);return(<TR key={e.id}><TD bold>{e.prenom} {e.nom}</TD><TD>{txt(cl?.nom,cl?.nom_ar)}</TD><TD><span style={{background:e.tot>=5?"#fee2e2":"#fef3c7",color:e.tot>=5?"#dc2626":"#d97706",borderRadius:7,padding:"2px 10px",fontSize:12,fontWeight:700}}>{e.tot} {t("pr_absences")}</span></TD></TR>);})}/>
       </Card>}
-      {moisRows.length>0&&<Card s={{marginTop:14}}>
+      <Card s={{marginTop:14}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:11}}>
           <div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{t("prs_titre")}</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {moisRows.length>0&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             <span style={{background:"#fef2f2",color:"#dc2626",borderRadius:8,padding:"4px 11px",fontSize:11.5,fontWeight:700}}>{t("prs_abs")} : {totAbs} ({tauxGlobal}%)</span>
             <span style={{background:"#fdf2f8",color:"#db2777",borderRadius:8,padding:"4px 11px",fontSize:11.5,fontWeight:700}}>{t("prs_filles")} : {pctFGlobal}%</span>
-          </div>
+          </div>}
         </div>
-        <Tbl cols={[t("prs_mois"),t("prs_abs"),t("prs_taux"),t("prs_filles")]} empty={null} rows={moisRows.map(r=>(
+        {moisRows.length>0?<Tbl cols={[t("prs_mois"),t("prs_abs"),t("prs_taux"),t("prs_filles")]} empty={null} rows={moisRows.map(r=>(
           <TR key={r.mk}>
             <TD bold>{r.label}</TD>
             <TD>{r.abs}</TD>
             <TD><span style={{background:r.taux>=20?"#fee2e2":"#fef3c7",color:r.taux>=20?"#dc2626":"#d97706",borderRadius:7,padding:"2px 10px",fontSize:12,fontWeight:700}}>{r.taux}%</span></TD>
             <TD><span style={{color:"#db2777",fontWeight:700}}>{r.pctF}%</span></TD>
           </TR>
-        ))}/>
-      </Card>}
+        ))}/>:<div style={{fontSize:12.5,color:"#94a3b8",padding:"6px 2px"}}>{t("prs_vide")}</div>}
+      </Card>
     </div>
   );
 }
