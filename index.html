@@ -114,8 +114,10 @@ const CODES = ["MONECOLE-2026","ECOLE-ALPHA","ECOLE-BETA","ECOLE-DEMO","GNF-TEST
 // ── ACCÈS CRÉATION D'ÉCOLE (réservé à l'éditeur) ──────────────────────────────
 // La création d'une nouvelle école n'est possible que via l'adresse secrète
 // se terminant par #admin-create ET avec ce mot de passe maître.
-// ⚠️ Change cette valeur pour la tienne, connue de toi seul.
-const MASTER_PASSWORD = "Sidibe-MonEcole-2026!";
+// Seule l'empreinte (hash PBKDF2) est stockée — le mot de passe en clair n'apparaît jamais ici.
+// Pour changer le mot de passe : régénère HASH + SALT avec l'outil dédié et remplace ci-dessous.
+const MASTER_PASSWORD_HASH = "13340967eac60623ef44aeb6b4cbc84b0798743b1ab78616ecd970d23ddf9510";
+const MASTER_PASSWORD_SALT = "5892a992e7ce4c3c581e3ba51ecf1a18";
 const isAdminCreateMode = () => {
   try { return (location.hash||"").toLowerCase().includes("admin-create"); } catch(e){ return false; }
 };
@@ -305,6 +307,7 @@ const I18N = {
     pr_sub:"Feuille de présence quotidienne", pr_presents:"✅ Présents", pr_absents:"❌ Absents",
     pr_select_classe:"Sélectionnez une classe.", pr_feuille_du:"Feuille du", pr_present:"✅ Présent", pr_absent:"❌ Absent",
     pr_histo:"⚠️ Historique absences", pr_th_total:"Total", pr_absences:"absence(s)",
+    prs_titre:"📊 Statistiques d'absences", prs_mois:"Mois", prs_abs:"Absences", prs_taux:"Taux d'absence", prs_filles:"% Filles", prs_total:"Total", prs_vide:"Aucune absence enregistrée pour le moment.",
     bu_sub:"Consultez et imprimez", bu_par_periode:"Bulletin par période", bu_annuel:"Bulletin annuel (toutes notes)",
     bu_toutes_classes:"Toutes classes", bu_tout_imprimer:"🖨️ Tout imprimer", bu_aucun_eleve:"Aucun élève.",
     fn_align_g:"Gauche", fn_align_c:"Centre", fn_align_d:"Droite",
@@ -482,6 +485,7 @@ const I18N = {
     pr_sub:"ورقة الحضور اليومية", pr_presents:"✅ الحاضرون", pr_absents:"❌ الغائبون",
     pr_select_classe:"اختر قسمًا.", pr_feuille_du:"ورقة يوم", pr_present:"✅ حاضر", pr_absent:"❌ غائب",
     pr_histo:"⚠️ سجل الغيابات", pr_th_total:"المجموع", pr_absences:"غياب",
+    prs_titre:"📊 إحصائيات الغياب", prs_mois:"الشهر", prs_abs:"الغيابات", prs_taux:"نسبة الغياب", prs_filles:"٪ الإناث", prs_total:"المجموع", prs_vide:"لا غياب مسجل حتى الآن.",
     bu_sub:"اطّلع واطبع", bu_par_periode:"كشف حسب الفترة", bu_annuel:"الكشف السنوي (كل النقاط)",
     bu_toutes_classes:"كل الأقسام", bu_tout_imprimer:"🖨️ طباعة الكل", bu_aucun_eleve:"لا تلاميذ.",
     fn_align_g:"يسار", fn_align_c:"وسط", fn_align_d:"يمين",
@@ -2728,6 +2732,17 @@ function Presences({data,ops,etab}) {
   const getP=(eleveId)=>{const p=data.presences.find(p=>p.eleve_id===eleveId&&p.date===date&&p.classe_id===parseInt(classeId));return p?.present??true;};
   const absents=eleves.filter(e=>!getP(e.id));
   const absHist=data.eleves.map(e=>({...e,tot:data.presences.filter(p=>p.eleve_id===e.id&&!p.present).length})).filter(e=>e.tot>0).sort((a,b)=>b.tot-a.tot);
+  // Statistiques mensuelles d'absences (toutes classes visibles), avec part des filles
+  const eleveById={}; data.eleves.forEach(e=>{eleveById[e.id]=e;});
+  const estFille=el=>(el?.genre||"").toLowerCase().startsWith("f");
+  const moisMap={};
+  data.presences.forEach(p=>{const mk=(p.date||"").slice(0,7); if(!mk)return; if(!moisMap[mk])moisMap[mk]={tot:0,abs:0,absF:0}; moisMap[mk].tot++; if(!p.present){moisMap[mk].abs++; if(estFille(eleveById[p.eleve_id]))moisMap[mk].absF++;}});
+  const moisRows=Object.keys(moisMap).filter(mk=>moisMap[mk].abs>0).sort().reverse().map(mk=>{const m=moisMap[mk];const [y,mo]=mk.split("-");let label=mk;try{label=new Date(parseInt(y),parseInt(mo)-1,1).toLocaleDateString(CURRENT_LANG==="ar"?"ar":"fr-FR",{month:"long",year:"numeric"});}catch(_){}return {mk,label,abs:m.abs,taux:m.tot?Math.round(m.abs/m.tot*100):0,pctF:m.abs?Math.round(m.absF/m.abs*100):0};});
+  const totAbs=moisRows.reduce((s,r)=>s+r.abs,0);
+  const totRecs=Object.values(moisMap).reduce((s,m)=>s+m.tot,0);
+  const totAbsF=Object.values(moisMap).reduce((s,m)=>s+m.absF,0);
+  const tauxGlobal=totRecs?Math.round(totAbs/totRecs*100):0;
+  const pctFGlobal=totAbs?Math.round(totAbsF/totAbs*100):0;
   return(
     <div>
       <SHdr title={t("nav_presences")+" 📅"} sub={t("pr_sub")} action={eleves.length>0?<ExportBar name={`presences_${(data.classes.find(c=>c.id===parseInt(classeId))?.nom||"classe")}_${date}`.replace(/\s+/g,"_")} title={`${t("nav_presences")} — ${date}`} getRows={()=>eleves.map(e=>({"Élève":`${e.prenom} ${e.nom}`,Matricule:e.matricule,Statut:absents.some(a=>a.id===e.id)?"Absent":"Présent"}))}/>:null}/>
@@ -2759,6 +2774,23 @@ function Presences({data,ops,etab}) {
       )}
       {absHist.length>0&&<Card><div style={{fontWeight:700,fontSize:13,color:"#0f172a",marginBottom:11}}>{t("pr_histo")}</div>
         <Tbl cols={[t("no_eleve"),t("no_classe"),t("pr_th_total")]} empty={null} rows={absHist.slice(0,10).map(e=>{const cl=data.classes.find(c=>c.id===e.classe_id);return(<TR key={e.id}><TD bold>{e.prenom} {e.nom}</TD><TD>{txt(cl?.nom,cl?.nom_ar)}</TD><TD><span style={{background:e.tot>=5?"#fee2e2":"#fef3c7",color:e.tot>=5?"#dc2626":"#d97706",borderRadius:7,padding:"2px 10px",fontSize:12,fontWeight:700}}>{e.tot} {t("pr_absences")}</span></TD></TR>);})}/>
+      </Card>}
+      {moisRows.length>0&&<Card s={{marginTop:14}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:11}}>
+          <div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{t("prs_titre")}</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <span style={{background:"#fef2f2",color:"#dc2626",borderRadius:8,padding:"4px 11px",fontSize:11.5,fontWeight:700}}>{t("prs_abs")} : {totAbs} ({tauxGlobal}%)</span>
+            <span style={{background:"#fdf2f8",color:"#db2777",borderRadius:8,padding:"4px 11px",fontSize:11.5,fontWeight:700}}>{t("prs_filles")} : {pctFGlobal}%</span>
+          </div>
+        </div>
+        <Tbl cols={[t("prs_mois"),t("prs_abs"),t("prs_taux"),t("prs_filles")]} empty={null} rows={moisRows.map(r=>(
+          <TR key={r.mk}>
+            <TD bold>{r.label}</TD>
+            <TD>{r.abs}</TD>
+            <TD><span style={{background:r.taux>=20?"#fee2e2":"#fef3c7",color:r.taux>=20?"#dc2626":"#d97706",borderRadius:7,padding:"2px 10px",fontSize:12,fontWeight:700}}>{r.taux}%</span></TD>
+            <TD><span style={{color:"#db2777",fontWeight:700}}>{r.pctF}%</span></TD>
+          </TR>
+        ))}/>
       </Card>}
     </div>
   );
@@ -3597,8 +3629,17 @@ function CheckScreen({codeActivation,onResult}) {
 }
 
 function MasterGate({onOk}) {
-  const [pw,setPw]=useState("");const [err,setErr]=useState("");
-  const go=()=>{ if(pw===MASTER_PASSWORD){onOk();} else setErr("Mot de passe maître incorrect."); };
+  const [pw,setPw]=useState("");const [err,setErr]=useState("");const [busy,setBusy]=useState(false);
+  const go=async()=>{
+    if(!pw||busy) return;
+    setBusy(true); setErr("");
+    try{
+      const h=await hashPw(pw,MASTER_PASSWORD_SALT);
+      if(h && h===MASTER_PASSWORD_HASH){ onOk(); }
+      else setErr("Mot de passe maître incorrect.");
+    }catch(_){ setErr("Vérification impossible (HTTPS requis)."); }
+    setBusy(false);
+  };
   return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1a56db)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",padding:16}}>
       <div style={{background:"#fff",borderRadius:22,padding:38,width:400,maxWidth:"100%",boxShadow:"0 32px 80px rgba(0,0,0,0.3)"}}>
@@ -3609,7 +3650,7 @@ function MasterGate({onOk}) {
         </div>
         <Lbl t="Mot de passe maître"><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} style={iSt()} placeholder="••••••••"/></Lbl>
         {err&&<div style={{background:"#fef2f2",borderRadius:9,padding:"9px 13px",color:"#dc2626",fontSize:12,marginBottom:12}}>{err}</div>}
-        <Btn ch="Accéder →" v="primary" onClick={go} disabled={!pw} full/>
+        <Btn ch={busy?"Vérification…":"Accéder →"} v="primary" onClick={go} disabled={!pw||busy} full/>
         <div style={{textAlign:"center",marginTop:14}}><a href="#" onClick={e=>{e.preventDefault();try{location.hash="";}catch(_){};location.reload();}} style={{color:"#94a3b8",fontSize:11,textDecoration:"none"}}>← Retour à la connexion</a></div>
       </div>
     </div>
