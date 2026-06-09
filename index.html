@@ -1202,7 +1202,18 @@ function useSupabaseData(etablissementId) {
     addComp: async(form)=>{const{error}=await sb.from("compositions").insert({...form,etablissement_id:etablissementId,created_at:new Date().toISOString()});if(!error){load();showToast("Composition créée");}else showToast(error.message,"error");},
     deleteComp: async(id)=>{await sb.from("compositions").delete().eq("id",id);load();showToast("Composition supprimée");},
 
-    addUser: async(form)=>{const f=await withHashedPw(form);const{error}=await sb.from("utilisateurs").insert({...f,etablissement_id:etablissementId});if(!error){load();showToast("Utilisateur créé");}else showToast(error.message,"error");},
+    addUser: async(form)=>{
+      try{
+        const { data, error } = await sb.functions.invoke("create-user", { body: {
+          nom: form.nom, prenom: form.prenom||"", genre: form.genre||"", identifiant: form.identifiant,
+          password: form.password, role: form.role,
+          matieres_autorisees: form.matieres_autorisees||[], classes_autorisees: form.classes_autorisees||[], pages_autorisees: form.pages_autorisees||[]
+        }});
+        if (error){ let msg=error.message||"Création impossible"; try{const b=await error.context.json(); if(b&&b.error)msg=b.error;}catch(_){} showToast(msg,"error"); return; }
+        if (data && data.error){ showToast(data.error,"error"); return; }
+        load(); showToast("Utilisateur créé");
+      }catch(e){ showToast(e.message||"Erreur de création","error"); }
+    },
     updateUser: async(id,form)=>{const f=await withHashedPw(form);const{error}=await sb.from("utilisateurs").update(f).eq("id",id);if(!error){load();showToast("Utilisateur modifié");}else showToast(error.message,"error");},
     deleteUser: async(id)=>{await sb.from("utilisateurs").delete().eq("id",id);load();showToast("Utilisateur supprimé");},
   };
