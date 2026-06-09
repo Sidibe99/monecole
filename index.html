@@ -209,7 +209,7 @@ const I18N = {
   fr:{
     login_sub:"Connectez-vous pour continuer", login_id:"Identifiant", login_pw:"Mot de passe",
     login_btn:"Se connecter →", login_btn_loading:"Connexion...", login_err:"Identifiant ou mot de passe incorrect.",
-    logout:"Déconnexion", reconnect:"Reconnexion…", ui_taille:"Taille du texte",
+    logout:"Déconnexion", reconnect:"Reconnexion…", ui_taille:"Taille du texte", ui_langue:"Langue", ui_apparence:"Affichage",
     notif_on:"Notifications activées", notif_off:"Activer les notifications", notif_refus:"Les notifications ont été refusées. Autorisez-les dans les réglages du navigateur pour ce site.",
     notif_actif_titre:"MonEcole", notif_actif_corps:"Notifications activées ✓", notif_msg_titre:"Nouveau message", notif_msg_plus:"nouveaux messages",
     notif_jour_titre:"Vos cours aujourd'hui", notif_jour_cours:"cours prévu", notif_jour_cours_p:"cours prévus", notif_cours_titre:"Cours dans 15 min",
@@ -386,7 +386,7 @@ const I18N = {
   ar:{
     login_sub:"سجّل الدخول للمتابعة", login_id:"اسم المستخدم", login_pw:"كلمة المرور",
     login_btn:"تسجيل الدخول ←", login_btn_loading:"جارٍ الدخول...", login_err:"اسم المستخدم أو كلمة المرور غير صحيحة.",
-    logout:"تسجيل الخروج", reconnect:"إعادة الاتصال…", ui_taille:"حجم النص",
+    logout:"تسجيل الخروج", reconnect:"إعادة الاتصال…", ui_taille:"حجم النص", ui_langue:"اللغة", ui_apparence:"العرض",
     notif_on:"الإشعارات مفعّلة", notif_off:"تفعيل الإشعارات", notif_refus:"تم رفض الإشعارات. فعّلها من إعدادات المتصفح لهذا الموقع.",
     notif_actif_titre:"مدرستي", notif_actif_corps:"تم تفعيل الإشعارات ✓", notif_msg_titre:"رسالة جديدة", notif_msg_plus:"رسائل جديدة",
     notif_jour_titre:"حصصك اليوم", notif_jour_cours:"حصة", notif_jour_cours_p:"حصص", notif_cours_titre:"حصة بعد 15 دقيقة",
@@ -3836,16 +3836,25 @@ function App() {
             </button>
           ))}
         </nav>
-        <div style={{padding:"10px 6px",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
-          <div style={{fontSize:9,color:"rgba(255,255,255,0.37)",textAlign:"center",marginBottom:5,textTransform:"uppercase",letterSpacing:.5}}>{t("ui_taille")}</div>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:9}}>
-            <button onClick={()=>setUiZoom(z=>Math.max(0.85,Math.round((z-0.05)*100)/100))} title="A-" style={{background:"rgba(255,255,255,0.1)",color:"#fff",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:12,fontWeight:800,lineHeight:1}}>A−</button>
-            <span style={{fontSize:11,color:"rgba(255,255,255,0.7)",minWidth:42,textAlign:"center",fontWeight:700}}>{Math.round(uiZoom*100)}%</span>
-            <button onClick={()=>setUiZoom(z=>Math.min(1.5,Math.round((z+0.05)*100)/100))} title="A+" style={{background:"rgba(255,255,255,0.1)",color:"#fff",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:15,fontWeight:800,lineHeight:1}}>A+</button>
+        <div style={{padding:"10px 8px",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
+          {/* Carte Affichage : taille du texte + langue */}
+          <div style={{background:"rgba(255,255,255,0.045)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:13,padding:"4px 11px",marginBottom:9}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"7px 0"}}>
+              <span style={{fontSize:10.5,fontWeight:700,color:"rgba(255,255,255,0.62)",display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:13}}>🅰️</span>{t("ui_taille")}</span>
+              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                <button onClick={()=>setUiZoom(z=>Math.max(0.85,Math.round((z-0.05)*100)/100))} title="A-" style={{background:"rgba(255,255,255,0.1)",color:"#fff",border:"none",borderRadius:7,width:26,height:26,cursor:"pointer",fontSize:11,fontWeight:800,lineHeight:1}}>A−</button>
+                <span style={{fontSize:10.5,color:"rgba(255,255,255,0.78)",minWidth:34,textAlign:"center",fontWeight:800}}>{Math.round(uiZoom*100)}%</span>
+                <button onClick={()=>setUiZoom(z=>Math.min(1.5,Math.round((z+0.05)*100)/100))} title="A+" style={{background:"rgba(255,255,255,0.1)",color:"#fff",border:"none",borderRadius:7,width:26,height:26,cursor:"pointer",fontSize:14,fontWeight:800,lineHeight:1}}>A+</button>
+              </div>
+            </div>
+            <div style={{height:1,background:"rgba(255,255,255,0.06)"}}/>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"7px 0"}}>
+              <span style={{fontSize:10.5,fontWeight:700,color:"rgba(255,255,255,0.62)",display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:13}}>🌐</span>{t("ui_langue")}</span>
+              <LangToggle lang={lang} setLang={setLang} dark/>
+            </div>
           </div>
-          <div style={{display:"flex",justifyContent:"center",marginBottom:9}}><LangToggle lang={lang} setLang={setLang} dark/></div>
-          <button className="me-btn" onClick={async()=>{if(notifEnabled){try{localStorage.setItem("monecole_notifs","0");}catch(_){}setNotifEnabled(false);}else{const ok=await askNotif();setNotifEnabled(ok);if(ok)notify(t("notif_actif_titre"),t("notif_actif_corps"),"monecole-test");else alert(t("notif_refus"));}}} style={{width:"100%",background:notifEnabled?"rgba(16,185,129,0.16)":"rgba(255,255,255,0.08)",color:notifEnabled?"#6ee7b7":"rgba(255,255,255,0.72)",border:notifEnabled?"1px solid rgba(16,185,129,0.25)":"1px solid rgba(255,255,255,0.12)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif",marginBottom:8}}>{notifEnabled?"🔔 "+t("notif_on"):"🔕 "+t("notif_off")}</button>
-          <button className="me-btn" onClick={()=>{try{sb.auth.signOut();}catch(_){}try{localStorage.removeItem("monecole_uid");}catch(_){}setCurrentUser(null);setScreen("login");}} style={{width:"100%",background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:9,padding:"8px",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🚪 {t("logout")}</button>
+          <button className="me-btn" onClick={async()=>{if(notifEnabled){try{localStorage.setItem("monecole_notifs","0");}catch(_){}setNotifEnabled(false);}else{const ok=await askNotif();setNotifEnabled(ok);if(ok)notify(t("notif_actif_titre"),t("notif_actif_corps"),"monecole-test");else alert(t("notif_refus"));}}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:7,background:notifEnabled?"rgba(16,185,129,0.16)":"rgba(255,255,255,0.06)",color:notifEnabled?"#6ee7b7":"rgba(255,255,255,0.72)",border:notifEnabled?"1px solid rgba(16,185,129,0.25)":"1px solid rgba(255,255,255,0.1)",borderRadius:11,padding:"10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif",marginBottom:8}}><span style={{fontSize:14}}>{notifEnabled?"🔔":"🔕"}</span>{notifEnabled?t("notif_on"):t("notif_off")}</button>
+          <button className="me-btn" onClick={()=>{try{sb.auth.signOut();}catch(_){}try{localStorage.removeItem("monecole_uid");}catch(_){}setCurrentUser(null);setScreen("login");}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:7,background:"rgba(239,68,68,0.13)",color:"#fca5a5",border:"1px solid rgba(239,68,68,0.17)",borderRadius:11,padding:"10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}><span style={{fontSize:14}}>🚪</span>{t("logout")}</button>
         </div>
       </div>
       <div className="me-main" style={{flex:1,overflowY:"auto",zoom:uiZoom,padding:isMobile?"58px 13px 18px":"24px 26px"}}><div key={safePage} className="me-page">{pages[safePage]}</div></div>
